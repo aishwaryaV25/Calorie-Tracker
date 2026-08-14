@@ -1,11 +1,17 @@
 /**
  * Day-bucketing helpers.
  *
- * Assumption, documented in the README: a "day" is a UTC calendar day. Nutrition
- * totals are only meaningful when every entry agrees on where a day starts, and
- * anchoring to UTC keeps aggregation deterministic regardless of where the
- * request came from. Supporting per-user time zones would mean storing an offset
- * on the user and shifting the bucket key at write time.
+ * Assumption, documented in the README: a "day" is the eater's own calendar day.
+ * The client decides which day an entry belongs to and sends it as `consumedOn`;
+ * the server stores that date at midnight UTC purely as a stable key to group
+ * and compare by, never as a moment in time.
+ *
+ * Deriving the day from the timestamp instead would be wrong for anyone away
+ * from UTC: a 00:30 supper in Delhi is 19:00 the previous day in UTC, and would
+ * be counted against yesterday's calories.
+ *
+ * The functions below therefore work in UTC deliberately — they operate on keys
+ * that are already anchored there, not on local wall-clock time.
  */
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -13,6 +19,11 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 /** Midnight UTC on the same calendar day as `value`. */
 export function startOfUtcDay(value: Date): Date {
   return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+}
+
+/** Turns a "YYYY-MM-DD" key into the Date used to store and compare that day. */
+export function fromDateKey(key: string): Date {
+  return new Date(`${key}T00:00:00.000Z`);
 }
 
 export function addDays(value: Date, days: number): Date {

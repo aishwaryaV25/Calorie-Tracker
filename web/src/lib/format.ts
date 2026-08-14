@@ -13,14 +13,23 @@ export const formatTime = (isoTimestamp: string) => format(parseISO(isoTimestamp
 export const formatDateTime = (isoTimestamp: string) =>
   format(parseISO(isoTimestamp), 'd MMM, HH:mm');
 
-/** The API's day key for a Date, in UTC. */
-export const toDateKey = (date: Date) => date.toISOString().slice(0, 10);
+/**
+ * The day key for a Date, read off the user's own calendar.
+ *
+ * Deliberately not `toISOString().slice(0, 10)`, which gives the UTC day: at
+ * 00:30 in Delhi that returns yesterday, so "Today" would filter to the wrong
+ * date and a meal logged after midnight would be counted against the day before.
+ */
+export const toDateKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate(),
+  ).padStart(2, '0')}`;
 
 export const todayKey = () => toDateKey(new Date());
 
 export function daysAgoKey(days: number): string {
   const date = new Date();
-  date.setUTCDate(date.getUTCDate() - days);
+  date.setDate(date.getDate() - days);
   return toDateKey(date);
 }
 

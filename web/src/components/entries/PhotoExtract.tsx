@@ -5,17 +5,19 @@ import { api } from '@/lib/api-client';
 import { errorMessage } from '@/lib/auth-context';
 import { formatCalories } from '@/lib/format';
 import { Alert, Badge, Button } from '@/components/ui';
-import type { ExtractedItem, ExtractionResult } from '@/lib/types';
+import type { ExtractionResult } from '@/lib/types';
 
 interface PhotoExtractProps {
   isAvailable: boolean;
-  onApply: (item: ExtractedItem, result: ExtractionResult) => void;
+  onApply: (result: ExtractionResult) => void;
 }
 
 /**
- * Uploads a nutrition label or meal photo and offers the extracted items to the
- * form. Nothing is saved here: the user picks an item, the fields are filled in,
- * and they confirm the numbers before the entry is created.
+ * Uploads a nutrition label or meal photo and fills the form with what comes
+ * back. The result is applied as soon as it arrives rather than offered as a
+ * choice: the model has already decided what the plate adds up to, and asking
+ * the user to confirm that in a second step only delays the same outcome. What
+ * it saw is listed underneath, and every field stays editable.
  */
 export function PhotoExtract({ isAvailable, onApply }: PhotoExtractProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +40,9 @@ export function PhotoExtract({ isAvailable, onApply }: PhotoExtractProps) {
     });
 
     try {
-      setResult(await api.ai.extract(file));
+      const extracted = await api.ai.extract(file);
+      setResult(extracted);
+      onApply(extracted);
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -61,7 +65,8 @@ export function PhotoExtract({ isAvailable, onApply }: PhotoExtractProps) {
         <div>
           <p className="text-sm font-medium">Fill from a photo</p>
           <p className="text-xs text-muted">
-            Upload a nutrition label or a photo of your plate to pre-fill the fields.
+            Upload a nutrition label or a photo of your plate and the fields below fill in
+            automatically.
           </p>
         </div>
         <Button
@@ -110,9 +115,34 @@ export function PhotoExtract({ isAvailable, onApply }: PhotoExtractProps) {
             {result.suggestedMealType && <Badge>{result.suggestedMealType}</Badge>}
           </div>
 
+          <p className="text-sm">
+            Filled in <span className="font-medium">{result.entry.foodName}</span> —{' '}
+            {formatCalories(result.entry.calories)} kcal, {result.entry.proteinGrams}p /{' '}
+            {result.entry.carbGrams}c / {result.entry.fatGrams}f
+          </p>
+
+          {result.components.length > 0 && (
+            <div className="rounded-lg bg-surface-raised p-3">
+              <p className="mb-1.5 text-xs font-medium text-muted">What the total is made of</p>
+              <ul className="flex flex-col gap-1">
+                {result.components.map((component) => (
+                  <li
+                    key={component.name}
+                    className="flex items-baseline justify-between gap-3 text-xs"
+                  >
+                    <span className="min-w-0 truncate">{component.name}</span>
+                    <span className="shrink-0 tabular-nums text-subtle">
+                      {formatCalories(component.calories)} kcal
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {result.confidence === 'low' && (
             <Alert tone="warning">
-              The image was hard to read, so please double-check these numbers.
+              The image was hard to read, so please double-check the numbers below.
             </Alert>
           )}
 
@@ -123,26 +153,6 @@ export function PhotoExtract({ isAvailable, onApply }: PhotoExtractProps) {
           ))}
 
           {result.notes && <p className="text-xs text-muted">{result.notes}</p>}
-
-          <ul className="flex flex-col gap-2">
-            {result.items.map((item, index) => (
-              <li
-                key={`${item.foodName}-${index}`}
-                className="flex items-center justify-between gap-3 rounded-lg bg-surface-raised px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm">{item.foodName}</p>
-                  <p className="text-xs text-muted">
-                    {item.quantity} {item.unit} · {formatCalories(item.calories)} kcal ·{' '}
-                    {item.proteinGrams}p / {item.carbGrams}c / {item.fatGrams}f
-                  </p>
-                </div>
-                <Button type="button" variant="secondary" onClick={() => onApply(item, result)}>
-                  Use
-                </Button>
-              </li>
-            ))}
-          </ul>
         </div>
       )}
     </div>

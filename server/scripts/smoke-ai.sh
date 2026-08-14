@@ -29,7 +29,11 @@ printf 'not an image' > "$TMP/fake.txt"
 echo -n "  "; curl -s -X POST "$BASE/ai/extract" -H "$AUTH" \
   -F "image=@$TMP/fake.txt;type=text/plain" | pick error.message
 
-echo "== valid image, no API key configured -> clear 503 rather than a crash =="
+# The outcome depends on whether a key is configured: without one the route
+# returns 503 "not configured", with one the provider rejects a 1x1 image and
+# that comes back as a 400. Either way the point is the same — a clear message
+# rather than a stack trace.
+echo "== a 1x1 image the model cannot read =="
 node -e 'require("fs").writeFileSync(process.argv[1],Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==","base64"))' "$TMP/dot.png"
 curl -s -o "$TMP/out.json" -w "  status: %{http_code}\n" -X POST "$BASE/ai/extract" -H "$AUTH" \
   -F "image=@$TMP/dot.png;type=image/png"

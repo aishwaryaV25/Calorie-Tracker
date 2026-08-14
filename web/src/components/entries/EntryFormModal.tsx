@@ -10,7 +10,8 @@ interface EntryFormModalProps {
   defaultMealType?: MealType;
   isAiAvailable: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  /** Receives the saved entry so callers can report what changed. */
+  onSaved: (entry: FoodEntry) => void;
 }
 
 /** Dialog wrapper around the shared entry form, used from the dashboard. */

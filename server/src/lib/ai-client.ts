@@ -1,5 +1,5 @@
 import { config } from '../config.js';
-import { serviceUnavailable } from './errors.js';
+import { badRequest, serviceUnavailable } from './errors.js';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
@@ -41,6 +41,8 @@ interface CompletionRequest {
   /** Ask the model for a JSON object conforming to this schema. */
   jsonSchema?: { name: string; schema: Record<string, unknown> };
   temperature?: number;
+  /** Caps the reply, which is what bounds the worst-case wait for the user. */
+  maxTokens?: number;
 }
 
 export interface CompletionResult {
@@ -87,6 +89,20 @@ function responseFormat(jsonSchema: CompletionRequest['jsonSchema']) {
 }
 
 /**
+ * Reasoning models emit their chain of thought in a `<think>` block ahead of the
+ * answer unless asked not to. `AI_REASONING_EFFORT` turns that off at the
+ * provider, but the block is stripped here as well so an unconfigured provider
+ * cannot leak raw deliberation into a chat reply or break JSON parsing.
+ */
+function stripReasoning(content: string | null): string | null {
+  if (!content) {
+    return content;
+  }
+
+  return content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+}
+
+/**
  * Plain JSON mode has no field for the schema, so it is appended to the
  * conversation as an instruction instead. This also satisfies the rule, common
  * to OpenAI and its imitators, that JSON mode requires the word "JSON" in the
@@ -130,7 +146,11 @@ export async function createCompletion(request: CompletionRequest): Promise<Comp
         model: config.ai.model,
         messages: withSchemaInstruction(request),
         temperature: request.temperature ?? 0.1,
+        ...(request.maxTokens ? { max_completion_tokens: request.maxTokens } : {}),
         ...(request.tools ? { tools: request.tools } : {}),
+        ...(config.ai.reasoningEffort
+          ? { reasoning_effort: config.ai.reasoningEffort }
+          : {}),
         ...responseFormat(request.jsonSchema),
       }),
     });
@@ -141,8 +161,27 @@ export async function createCompletion(request: CompletionRequest): Promise<Comp
       // has no use for upstream detail and should not see account information.
       console.error(`AI provider returned ${response.status}: ${body}`);
 
+      // A 4xx means the provider understood the request and refused it, and the
+      // only part a caller controls is the file they uploaded — an image too
+      // small to analyse, or one that is corrupt. Reporting that as a server
+      // fault would send them off to retry something that cannot succeed.
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        throw badRequest(
+          'The AI service could not read this file. It may be corrupt, too small, or in a format the model does not support.',
+        );
+      }
+
       if (response.status === 429) {
-        throw serviceUnavailable('The AI service is rate limited right now. Please try again.');
+        // Free tiers are metered per minute and the provider says how long to
+        // wait, which is far more useful to a user than "try again later".
+        const retryAfter = Number(response.headers.get('retry-after'));
+        const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.ceil(retryAfter) : null;
+
+        throw serviceUnavailable(
+          wait
+            ? `The AI service is rate limited. Try again in about ${wait} second${wait === 1 ? '' : 's'}.`
+            : 'The AI service is rate limited right now. Please try again in a moment.',
+        );
       }
 
       throw serviceUnavailable('The AI service could not process this request.');
@@ -158,7 +197,10 @@ export async function createCompletion(request: CompletionRequest): Promise<Comp
       throw new AiResponseError('The AI service returned an empty response.');
     }
 
-    return { content: message.content ?? null, toolCalls: message.tool_calls ?? [] };
+    return {
+      content: stripReasoning(message.content ?? null),
+      toolCalls: message.tool_calls ?? [],
+    };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw serviceUnavailable('The AI service took too long to respond. Please try again.');

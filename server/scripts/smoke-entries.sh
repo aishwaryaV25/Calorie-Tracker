@@ -50,6 +50,24 @@ echo "== date range is inclusive of the end day =="
 curl -s "$BASE/entries?from=2026-08-10&to=2026-08-11" -H "Authorization: Bearer $A_TOKEN" \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s);console.log("  10th-11th:",o.meta.totalItems,"entries, totals:",JSON.stringify(o.totals))})'
 
+echo "== a late-night entry stays on the day the eater picked =="
+# Regression: 00:30 on the 15th in Delhi is 19:00 on the 14th in UTC. Deriving the
+# day from the timestamp filed it under the 14th, so the list showed the day before
+# the one just chosen. The client sends the day it means, and it must survive both
+# the write and the read back.
+TZ_ID=$(curl -s -X POST "$BASE/entries" -H "Authorization: Bearer $A_TOKEN" -H 'Content-Type: application/json' -d '{
+  "foodName":"Midnight dosa","mealType":"snack","quantity":1,"unit":"plate",
+  "calories":250,"consumedAt":"2026-08-14T19:00:00Z","consumedOn":"2026-08-15"
+}' | json id)
+curl -s "$BASE/entries/$TZ_ID" -H "Authorization: Bearer $A_TOKEN" \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s);console.log("  picked 2026-08-15, stored",o.consumedOn,o.consumedOn==="2026-08-15"?"[ok]":"[WRONG]")})'
+curl -s "$BASE/entries?from=2026-08-15&to=2026-08-15" -H "Authorization: Bearer $A_TOKEN" \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s);console.log("  filtering that day finds it:",o.data.some(e=>e.foodName==="Midnight dosa"))})'
+curl -s -X PATCH "$BASE/entries/$TZ_ID" -H "Authorization: Bearer $A_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"consumedAt":"2026-08-19T18:45:00Z","consumedOn":"2026-08-20"}' \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s);console.log("  edited to 2026-08-20, stored",o.consumedOn,o.consumedOn==="2026-08-20"?"[ok]":"[WRONG]")})'
+curl -s -o /dev/null -X DELETE "$BASE/entries/$TZ_ID" -H "Authorization: Bearer $A_TOKEN"
+
 echo "== meal type filter =="
 curl -s "$BASE/entries?mealType=lunch" -H "Authorization: Bearer $A_TOKEN" \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s);console.log("  lunch:",o.data.map(e=>e.foodName).join(", "))})'

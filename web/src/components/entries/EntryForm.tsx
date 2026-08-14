@@ -35,6 +35,16 @@ function toLocalInputValue(isoTimestamp?: string): string {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 }
 
+/**
+ * A `datetime-local` input reports an empty string while its value is
+ * incomplete, and converting an invalid Date throws rather than returning NaN.
+ * Returning null instead lets the caller report the problem on the field.
+ */
+function toIsoTimestamp(localValue: string): string | null {
+  const parsed = new Date(localValue);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
 const initialValues = (entry: FoodEntry | null | undefined, mealType: MealType): FormValues =>
   entry
     ? {
@@ -97,27 +107,46 @@ export function EntryForm({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+
+    // The input holds local time; the API stores the absolute instant.
+    const consumedAt = toIsoTimestamp(values.consumedAt);
+
+    if (!consumedAt) {
+      // Reported through the same channel as a server rejection, so it lands
+      // under the field rather than in a banner.
+      setError(
+        new ApiError(400, 'VALIDATION_ERROR', 'Check the highlighted field.', [
+          { field: 'consumedAt', message: 'Enter a full date and time.' },
+        ]),
+      );
+      return;
+    }
+
     setIsSaving(true);
 
-    const payload = {
-      foodName: values.foodName.trim(),
-      mealType: values.mealType,
-      quantity: Number(values.quantity),
-      unit: values.unit.trim(),
-      calories: Number(values.calories),
-      proteinGrams: optionalNumber(values.proteinGrams),
-      carbGrams: optionalNumber(values.carbGrams),
-      fatGrams: optionalNumber(values.fatGrams),
-      // The input holds local time; the API stores the absolute instant.
-      consumedAt: new Date(values.consumedAt).toISOString(),
-      micronutrients: micronutrients.map((item) => ({
-        nutrient: item.nutrient,
-        amount: item.amount,
-        unit: item.unit,
-      })),
-    };
-
     try {
+      const payload = {
+        foodName: values.foodName.trim(),
+        mealType: values.mealType,
+        quantity: Number(values.quantity),
+        unit: values.unit.trim(),
+        calories: Number(values.calories),
+        proteinGrams: optionalNumber(values.proteinGrams),
+        carbGrams: optionalNumber(values.carbGrams),
+        fatGrams: optionalNumber(values.fatGrams),
+        consumedAt,
+        // The date exactly as it was picked. Sent alongside the instant because
+        // the server cannot tell which calendar day a UTC timestamp belongs to
+        // without knowing the user's time zone — an 00:30 entry in Delhi would
+        // otherwise be filed under the previous day.
+        consumedOn: values.consumedAt.slice(0, 10),
+        micronutrients: micronutrients.map((item) => ({
+          nutrient: item.nutrient,
+          amount: item.amount,
+          unit: item.unit,
+        })),
+      };
+
       const saved = entry
         ? await api.entries.update(entry.id, payload)
         : await api.entries.create(payload);
@@ -147,19 +176,23 @@ export function EntryForm({
       {!isEditing && (
         <PhotoExtract
           isAvailable={isAiAvailable}
-          onApply={(item, result) => {
+          onApply={(result) => {
+            const { entry } = result;
+
             setValues((current) => ({
               ...current,
-              foodName: item.foodName,
-              quantity: String(item.quantity),
-              unit: item.unit,
-              calories: String(item.calories),
-              proteinGrams: String(item.proteinGrams),
-              carbGrams: String(item.carbGrams),
-              fatGrams: String(item.fatGrams),
+              foodName: entry.foodName,
+              quantity: String(entry.quantity),
+              unit: entry.unit,
+              calories: String(entry.calories),
+              proteinGrams: String(entry.proteinGrams),
+              carbGrams: String(entry.carbGrams),
+              fatGrams: String(entry.fatGrams),
               mealType: result.suggestedMealType ?? current.mealType,
+              // `consumedAt` is deliberately untouched: the photo says what was
+              // eaten, not when the user is recording it.
             }));
-            setMicronutrients(item.micronutrients);
+            setMicronutrients(entry.micronutrients);
           }}
         />
       )}
@@ -193,7 +226,9 @@ export function EntryForm({
           <Input
             id="consumedAt"
             type="datetime-local"
+            required
             value={values.consumedAt}
+            hasError={Boolean(fieldError('consumedAt'))}
             onChange={(event) => setValue('consumedAt', event.target.value)}
           />
         </Field>

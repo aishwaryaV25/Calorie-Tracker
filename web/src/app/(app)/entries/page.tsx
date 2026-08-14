@@ -6,7 +6,7 @@ import { api } from '@/lib/api-client';
 import { errorMessage } from '@/lib/auth-context';
 import { useAsync } from '@/hooks/useAsync';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { formatCalories, formatGrams } from '@/lib/format';
+import { formatCalories, formatDateKey, formatGrams } from '@/lib/format';
 import { Alert, Button, Card, EmptyState, Pagination, Select, Skeleton } from '@/components/ui';
 import {
   DEFAULT_FILTERS,
@@ -26,6 +26,7 @@ export default function EntriesPage() {
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
 
   // One request when typing stops, rather than one per keystroke.
@@ -58,6 +59,17 @@ export default function EntriesPage() {
     ],
   );
 
+  const rows = entries.data?.data ?? [];
+  const meta = entries.data?.meta;
+  const totals = entries.data?.totals;
+
+  /**
+   * Deleting the last row of the last page leaves the current page beyond the
+   * end of the results: an empty list, and no pager to escape with because the
+   * pager only renders alongside rows.
+   */
+  const isPastLastPage = Boolean(meta && meta.totalPages > 0 && page > meta.totalPages);
+
   /**
    * Any filter change returns to page one: staying on page 4 of a result set
    * that now has two pages would show an empty list for no obvious reason.
@@ -65,6 +77,7 @@ export default function EntriesPage() {
   function applyFilters(next: EntryFilterState) {
     setFilters(next);
     setPage(1);
+    setNotice(null);
   }
 
   async function handleDelete(entry: FoodEntry) {
@@ -73,11 +86,19 @@ export default function EntriesPage() {
     }
 
     setActionError(null);
+    setNotice(null);
     setDeletingId(entry.id);
 
     try {
       await api.entries.remove(entry.id);
+
+      // Removing the only row on this page would otherwise leave it empty.
+      if (rows.length === 1 && page > 1) {
+        setPage(page - 1);
+      }
+
       setRevision((value) => value + 1);
+      setNotice(`Deleted "${entry.foodName}".`);
     } catch (caught) {
       setActionError(errorMessage(caught));
     } finally {
@@ -85,9 +106,25 @@ export default function EntriesPage() {
     }
   }
 
-  const rows = entries.data?.data ?? [];
-  const meta = entries.data?.meta;
-  const totals = entries.data?.totals;
+  /**
+   * An edit can move an entry out of the active filters, so it disappears from
+   * the list. Saying so explicitly stops that looking like a failed save.
+   */
+  function handleSaved(saved: FoodEntry) {
+    setEditingEntry(null);
+    setRevision((value) => value + 1);
+
+    const movedOutOfRange =
+      (filters.from && saved.consumedOn < filters.from) ||
+      (filters.to && saved.consumedOn > filters.to) ||
+      (filters.mealType && saved.mealType !== filters.mealType);
+
+    setNotice(
+      movedOutOfRange
+        ? `Saved "${saved.foodName}" to ${formatDateKey(saved.consumedOn)}. It no longer matches your filters, so it has left this list.`
+        : `Saved "${saved.foodName}".`,
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -119,6 +156,7 @@ export default function EntriesPage() {
 
       {actionError && <Alert>{actionError}</Alert>}
       {entries.error && <Alert>{entries.error}</Alert>}
+      {notice && !actionError && <Alert tone="info">{notice}</Alert>}
 
       <Card
         title="Results"
@@ -150,6 +188,16 @@ export default function EntriesPage() {
       >
         {entries.isLoading && !entries.data ? (
           <Skeleton className="h-64 w-full" />
+        ) : isPastLastPage ? (
+          <EmptyState
+            title="No entries on this page"
+            description={`These filters only reach page ${meta?.totalPages}.`}
+            action={
+              <Button variant="secondary" onClick={() => setPage(meta?.totalPages ?? 1)}>
+                Go to the last page
+              </Button>
+            }
+          />
         ) : rows.length === 0 ? (
           <EmptyState
             title="No entries match these filters"
@@ -182,10 +230,7 @@ export default function EntriesPage() {
           entry={editingEntry}
           isAiAvailable={aiStatus.data?.available ?? false}
           onClose={() => setEditingEntry(null)}
-          onSaved={() => {
-            setEditingEntry(null);
-            setRevision((value) => value + 1);
-          }}
+          onSaved={handleSaved}
         />
       )}
     </div>

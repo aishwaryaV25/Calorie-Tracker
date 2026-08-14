@@ -36,6 +36,15 @@ export interface CreateEntryInput {
   fatGrams?: number;
   /** Defaults to the current time in the service when omitted. */
   consumedAt?: Date;
+  /**
+   * The calendar day this entry belongs to, as "YYYY-MM-DD".
+   *
+   * Sent separately from `consumedAt` because a day cannot be derived from an
+   * instant without knowing where the eater was: 00:30 in Delhi and 19:00 in
+   * London are the same moment but different days. Omitted, the service falls
+   * back to the UTC day of `consumedAt`.
+   */
+  consumedOn?: string;
   micronutrients?: MicronutrientInput[];
 }
 

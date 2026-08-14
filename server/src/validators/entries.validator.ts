@@ -70,6 +70,15 @@ const coreEntryValidators = (optional: boolean): ValidationChain[] => {
       .isISO8601()
       .withMessage('consumedAt must be an ISO date or date-time.')
       .toDate(),
+    // Kept as a plain string rather than coerced to a Date: it is a calendar
+    // day, and parsing it into an instant is exactly the mistake this field
+    // exists to avoid.
+    body('consumedOn')
+      .optional()
+      .matches(/^\d{4}-\d{2}-\d{2}$/)
+      .withMessage('consumedOn must be a calendar date in YYYY-MM-DD form.')
+      .isISO8601({ strict: true })
+      .withMessage('consumedOn must be a real calendar date.'),
     ...micronutrientValidators,
   ];
 };

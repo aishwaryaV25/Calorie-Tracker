@@ -127,7 +127,7 @@ export interface GoalComparison {
   hasGoal: boolean;
 }
 
-export interface ExtractedItem {
+export interface ExtractedEntry {
   foodName: string;
   quantity: number;
   unit: string;
@@ -141,8 +141,10 @@ export interface ExtractedItem {
 export interface ExtractionResult {
   source: 'nutrition_label' | 'meal_photo';
   suggestedMealType: MealType | null;
-  items: ExtractedItem[];
-  totals: { calories: number } & Macros;
+  /** The single entry the form is filled with. */
+  entry: ExtractedEntry;
+  /** The foods behind the totals, shown so the estimate can be judged. */
+  components: { name: string; calories: number }[];
   confidence: 'high' | 'medium' | 'low';
   warnings: string[];
   notes: string | null;
@@ -158,6 +160,8 @@ export interface CreateEntryPayload {
   carbGrams?: number;
   fatGrams?: number;
   consumedAt?: string;
+  /** The calendar day the entry counts towards, as the user's clock sees it. */
+  consumedOn?: string;
   micronutrients?: { nutrient: string; amount: number; unit?: string }[];
 }
 

@@ -5,7 +5,7 @@ import {
   type EntrySource,
   type MealType,
 } from '../domain/nutrition.js';
-import { startOfUtcDay } from '../lib/dates.js';
+import { fromDateKey, startOfUtcDay } from '../lib/dates.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { paginate, toSkipTake, type Paginated } from '../lib/pagination.js';
 import { prisma } from '../lib/prisma.js';
@@ -93,11 +93,13 @@ function buildEntryFilter(userId: string, query: ListEntriesQuery): Prisma.FoodE
   const where: Prisma.FoodEntryWhereInput = { userId };
 
   if (query.from || query.to) {
-    where.consumedAt = {
-      ...(query.from ? { gte: query.from } : {}),
-      // An inclusive end date: "to=2026-08-15" should include everything eaten
-      // that day, so the bound is the start of the following day, exclusive.
-      ...(query.to ? { lt: new Date(startOfUtcDay(query.to).getTime() + 86_400_000) } : {}),
+    // Matched against the day the entry was assigned to, not its timestamp, so
+    // the rows returned for "15 August" are exactly the rows the list shows
+    // under that date. Filtering on the instant instead would drop a late-night
+    // entry whose UTC time has already rolled into the next day.
+    where.consumedOn = {
+      ...(query.from ? { gte: startOfUtcDay(query.from) } : {}),
+      ...(query.to ? { lte: startOfUtcDay(query.to) } : {}),
     };
   }
 
@@ -161,6 +163,15 @@ export async function getEntry(userId: string, id: string): Promise<EntryDto> {
 }
 
 /**
+ * Which calendar day an entry counts towards. The client knows the eater's time
+ * zone and says so; without that the UTC day of the timestamp is the best guess
+ * available, which is right for a UTC client and for anyone logging mid-morning.
+ */
+function resolveConsumedOn(input: { consumedOn?: string }, consumedAt: Date): Date {
+  return input.consumedOn ? fromDateKey(input.consumedOn) : startOfUtcDay(consumedAt);
+}
+
+/**
  * Fills in the values the validators leave out. `consumedAt` defaults here rather
  * than in the validation chain because a chain is built once when the module is
  * imported, so a "now" default there would freeze at server start-up.
@@ -179,7 +190,7 @@ function buildCreateData(userId: string, input: CreateEntryInput, source: EntryS
     carbGrams: input.carbGrams ?? 0,
     fatGrams: input.fatGrams ?? 0,
     consumedAt,
-    consumedOn: startOfUtcDay(consumedAt),
+    consumedOn: resolveConsumedOn(input, consumedAt),
     source,
     micronutrients: { create: normaliseMicronutrients(input.micronutrients) },
   };
@@ -232,13 +243,18 @@ export async function updateEntry(
   // would happily modify another user's row.
   await assertEntryExists(userId, id);
 
-  const { micronutrients, consumedAt, ...rest } = input;
+  const { micronutrients, consumedAt, consumedOn, ...rest } = input;
 
   const entry = await prisma.foodEntry.update({
     where: { id },
     data: {
       ...rest,
-      ...(consumedAt ? { consumedAt, consumedOn: startOfUtcDay(consumedAt) } : {}),
+      ...(consumedAt ? { consumedAt } : {}),
+      // The day moves when either the timestamp or the day itself changes, and
+      // an explicit `consumedOn` always wins over one inferred from the instant.
+      ...(consumedOn || consumedAt
+        ? { consumedOn: resolveConsumedOn({ consumedOn }, consumedAt ?? new Date()) }
+        : {}),
       // Micronutrients are replaced wholesale rather than merged, so the payload
       // the client sends is exactly what it gets back.
       ...(micronutrients

@@ -83,6 +83,20 @@ if (!['schema', 'object'].includes(aiJsonMode)) {
   problems.push('AI_JSON_MODE must be one of: schema, object');
 }
 
+/**
+ * How hard a reasoning model should think before answering. Left blank the
+ * parameter is not sent at all, because a provider that does not know it
+ * rejects the whole request.
+ *
+ * Worth setting for models that reason by default: this app asks narrow,
+ * well-specified questions, so deliberation mostly buys latency and tokens.
+ */
+const aiReasoningEffort = optional('AI_REASONING_EFFORT', '');
+
+if (aiReasoningEffort && !['none', 'low', 'medium', 'high'].includes(aiReasoningEffort)) {
+  problems.push('AI_REASONING_EFFORT must be empty or one of: none, low, medium, high');
+}
+
 if (problems.length > 0) {
   throw new ConfigError(problems);
 }
@@ -106,6 +120,7 @@ export const config = {
     baseUrl: aiBaseUrl,
     model: aiModel,
     jsonMode: aiJsonMode as 'schema' | 'object',
+    reasoningEffort: aiReasoningEffort,
     /**
      * AI routes stay mounted without a key and return a clear 503, so the rest of
      * the app remains runnable for anyone who just wants to try the core features.

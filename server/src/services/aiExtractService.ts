@@ -14,9 +14,15 @@ import { unprocessable } from '../lib/errors.js';
  * The photo is analysed and returned as a *draft* that pre-fills the entry form.
  * Nothing is written to the database here: vision estimates are approximate, so
  * the user reviews and corrects the numbers before saving.
+ *
+ * The model returns exactly one entry rather than a list to choose from. A plate
+ * of food is one thing the user ate, and the form it fills has one set of
+ * fields, so anything else would leave the client picking or summing on the
+ * model's behalf. The individual foods still come back in `components`, but as
+ * a description of how the total was reached, not as options.
  */
 
-export interface ExtractedItem {
+export interface ExtractedEntry {
   foodName: string;
   quantity: number;
   unit: string;
@@ -30,8 +36,10 @@ export interface ExtractedItem {
 export interface ExtractionResult {
   source: 'nutrition_label' | 'meal_photo';
   suggestedMealType: MealType | null;
-  items: ExtractedItem[];
-  totals: { calories: number; proteinGrams: number; carbGrams: number; fatGrams: number };
+  /** Ready to drop straight into the entry form. */
+  entry: ExtractedEntry;
+  /** The foods that make up the entry, for display only. */
+  components: { name: string; calories: number }[];
   /** Model's own confidence, surfaced so the UI can prompt for a closer look. */
   confidence: 'high' | 'medium' | 'low';
   warnings: string[];
@@ -44,22 +52,35 @@ interface RawExtraction {
   suggestedMealType: string | null;
   confidence: string;
   notes: string | null;
-  items: {
-    foodName: string;
-    quantity: number;
-    unit: string;
-    calories: number;
-    proteinGrams: number;
-    carbGrams: number;
-    fatGrams: number;
-    micronutrients: { nutrient: string; amount: number }[];
-  }[];
+  foodName: string;
+  quantity: number;
+  unit: string;
+  calories: number;
+  proteinGrams: number;
+  carbGrams: number;
+  fatGrams: number;
+  micronutrients: { nutrient: string; amount: number }[];
+  components: { name: string; calories: number }[];
 }
 
 const responseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['source', 'suggestedMealType', 'confidence', 'notes', 'items'],
+  required: [
+    'source',
+    'suggestedMealType',
+    'confidence',
+    'notes',
+    'foodName',
+    'quantity',
+    'unit',
+    'calories',
+    'proteinGrams',
+    'carbGrams',
+    'fatGrams',
+    'micronutrients',
+    'components',
+  ],
   properties: {
     source: {
       type: 'string',
@@ -74,74 +95,86 @@ const responseSchema = {
     confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
     notes: {
       type: ['string', 'null'],
-      description: 'Short note about assumptions made, such as an estimated portion size.',
+      description: 'One short sentence naming the main assumption, or null.',
     },
-    items: {
+    foodName: { type: 'string', description: 'Name for the whole entry.' },
+    quantity: { type: 'number', description: 'Portion amount, matching unit.' },
+    unit: { type: 'string', description: 'For example g, ml, plate, bowl, piece.' },
+    calories: { type: 'number', description: 'Total for the whole entry.' },
+    proteinGrams: { type: 'number' },
+    carbGrams: { type: 'number' },
+    fatGrams: { type: 'number' },
+    micronutrients: {
       type: 'array',
-      description: 'One entry per distinct food item visible.',
       items: {
         type: 'object',
         additionalProperties: false,
-        required: [
-          'foodName',
-          'quantity',
-          'unit',
-          'calories',
-          'proteinGrams',
-          'carbGrams',
-          'fatGrams',
-          'micronutrients',
-        ],
+        required: ['nutrient', 'amount'],
         properties: {
-          foodName: { type: 'string' },
-          quantity: { type: 'number', description: 'Portion amount, matching unit.' },
-          unit: { type: 'string', description: 'For example g, ml, piece, cup.' },
+          nutrient: { type: 'string', enum: MICRONUTRIENT_KEYS },
+          amount: { type: 'number', description: 'Amount in the canonical unit for this nutrient.' },
+        },
+      },
+    },
+    components: {
+      type: 'array',
+      description: 'The foods that add up to the totals above. Empty for a single product.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'calories'],
+        properties: {
+          name: { type: 'string', description: 'Food and portion, e.g. "2 slices white bread".' },
           calories: { type: 'number' },
-          proteinGrams: { type: 'number' },
-          carbGrams: { type: 'number' },
-          fatGrams: { type: 'number' },
-          micronutrients: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['nutrient', 'amount'],
-              properties: {
-                nutrient: { type: 'string', enum: MICRONUTRIENT_KEYS },
-                amount: {
-                  type: 'number',
-                  description: 'Amount in the canonical unit for this nutrient.',
-                },
-              },
-            },
-          },
         },
       },
     },
   },
 } as const;
 
-const SYSTEM_PROMPT = `You extract nutrition data from images for a calorie tracking app.
+/**
+ * The prompt is written for a form that is filled in automatically, so it asks
+ * for one entry rather than a list of candidates.
+ *
+ * Listing the components is not decoration: working through the plate item by
+ * item and then adding up is markedly more accurate than naming a total
+ * outright, and it gives the totals something to be checked against. They carry
+ * only a name and a calorie figure, which keeps the reply — and so the latency —
+ * short.
+ */
+const SYSTEM_PROMPT = `You read food images for a calorie tracker. Reply with one JSON object that fills a single entry in a food diary.
 
-There are two kinds of image:
-1. A packaged product's nutrition label. Read the printed values directly. Do not estimate.
-   Report values for the serving size shown on the label and set the quantity and unit to that
-   serving. If the label lists both "per serving" and "per 100g", prefer per serving.
-2. A plate or bowl of food. Identify each distinct item and estimate a realistic portion using
-   visual cues such as plate size and cutlery. List each food as its own item.
+TWO KINDS OF IMAGE
 
-Rules:
-- Use grams for macronutrients and the canonical unit for each micronutrient
-  (micrograms for vitamin A, D and B12; milligrams for most minerals; grams for fibre and sugar).
-- Only report micronutrients you can actually read or confidently infer. Omit the rest;
-  do not pad the list with zeros.
-- Calories must be consistent with the macros: protein and carbohydrate are 4 kcal per gram,
-  fat is 9 kcal per gram.
-- Set confidence to "low" when the image is blurry, partially hidden, or the portion is ambiguous.
-- If the image contains no food and no nutrition label, return an empty items array.`;
+Nutrition label on packaging:
+- Read the printed numbers. Never estimate them.
+- Use the serving size printed on the label for quantity and unit, e.g. 40 with unit "g", or 1 with unit "bar".
+- If both "per serving" and "per 100 g" are printed, use per serving.
+- foodName is the product name. Leave components empty.
+
+Plate, bowl or glass of food:
+- foodName names the meal as a whole, e.g. "Fried egg on toast with ham and salad".
+- Set quantity to 1 and unit to what holds it: "plate", "bowl", "glass".
+- List every distinct food you can see in components, each with its own portion and calories, judging portions against the plate, cutlery or hand for scale.
+- calories, proteinGrams, carbGrams and fatGrams are the totals for the whole plate, and calories must equal the sum of the component calories.
+
+ALWAYS
+- Macros are in grams and describe the entry as a whole.
+- Keep the numbers self-consistent: protein 4 kcal/g, carbohydrate 4 kcal/g, fat 9 kcal/g.
+- micronutrients: only what a label prints or what is clearly present in a recognised food. At most 6. Never pad with zeros.
+- confidence: "high" only for a legible label, "medium" for a clear plate of recognisable food, "low" when the image is blurred or cropped, the food is unidentifiable, or the portion is a guess.
+- notes: at most one short sentence, naming the main assumption. Use null if there is nothing worth saying.
+- If the image shows neither food nor a nutrition label, reply with an empty foodName and 0 calories.
+- Output the JSON object only. No explanation, no markdown.`;
 
 /** Values above this are almost certainly a misread label rather than real food. */
-const MAX_CALORIES_PER_ITEM = 20_000;
+const MAX_CALORIES = 20_000;
+
+/**
+ * Enough for a long dish name and a dozen components, and short enough to bound
+ * how slow a single extraction can get.
+ */
+const MAX_RESPONSE_TOKENS = 900;
 
 export async function extractNutritionFromImage(
   imageBuffer: Buffer,
@@ -151,6 +184,7 @@ export async function extractNutritionFromImage(
 
   const completion = await createCompletion({
     temperature: 0,
+    maxTokens: MAX_RESPONSE_TOKENS,
     jsonSchema: { name: 'nutrition_extraction', schema: responseSchema },
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -175,81 +209,105 @@ export async function extractNutritionFromImage(
  * so a hallucinated value cannot reach the client or the database unchecked.
  */
 export function sanitiseExtraction(raw: RawExtraction): ExtractionResult {
-  if (!Array.isArray(raw.items)) {
-    throw new AiResponseError('The AI response did not include a list of items.');
+  if (!raw || typeof raw !== 'object') {
+    throw new AiResponseError('The AI response was not an object.');
   }
 
-  const warnings: string[] = [];
+  const foodName = typeof raw.foodName === 'string' ? raw.foodName.trim() : '';
 
-  const items: ExtractedItem[] = raw.items
-    .filter((item) => typeof item?.foodName === 'string' && item.foodName.trim().length > 0)
-    .map((item) => {
-      const calories = clamp(item.calories, 0, MAX_CALORIES_PER_ITEM);
-      const proteinGrams = clamp(item.proteinGrams, 0, 5_000);
-      const carbGrams = clamp(item.carbGrams, 0, 5_000);
-      const fatGrams = clamp(item.fatGrams, 0, 5_000);
-
-      const impliedCalories =
-        proteinGrams * CALORIES_PER_GRAM.protein +
-        carbGrams * CALORIES_PER_GRAM.carbs +
-        fatGrams * CALORIES_PER_GRAM.fat;
-
-      // A large gap usually means a misread label or an inconsistent estimate.
-      // Surfaced as a warning rather than corrected silently, because either the
-      // calories or the macros could be the wrong one.
-      if (impliedCalories > 0 && calories > 0) {
-        const drift = Math.abs(impliedCalories - calories) / Math.max(impliedCalories, calories);
-
-        if (drift > 0.25) {
-          warnings.push(
-            `"${item.foodName.trim()}": macros imply about ${Math.round(impliedCalories)} kcal but ${Math.round(calories)} kcal was read. Please check.`,
-          );
-        }
-      }
-
-      return {
-        foodName: item.foodName.trim().slice(0, 160),
-        quantity: clamp(item.quantity, 0.01, 10_000, 1),
-        unit: (item.unit || 'serving').trim().slice(0, 24),
-        calories: round(calories),
-        proteinGrams: round(proteinGrams),
-        carbGrams: round(carbGrams),
-        fatGrams: round(fatGrams),
-        micronutrients: sanitiseMicronutrients(item.micronutrients),
-      };
-    });
-
-  if (items.length === 0) {
+  // The prompt asks for an empty name when there is nothing to read, so this is
+  // the expected path for a photo of a wall, not an exceptional one.
+  if (foodName.length === 0) {
     throw unprocessable(
       'No food or nutrition label could be recognised in this image. Try a clearer photo, or add the entry manually.',
     );
   }
 
-  const totals = items.reduce(
-    (sum, item) => ({
-      calories: sum.calories + item.calories,
-      proteinGrams: sum.proteinGrams + item.proteinGrams,
-      carbGrams: sum.carbGrams + item.carbGrams,
-      fatGrams: sum.fatGrams + item.fatGrams,
-    }),
-    { calories: 0, proteinGrams: 0, carbGrams: 0, fatGrams: 0 },
-  );
+  const calories = clamp(raw.calories, 0, MAX_CALORIES);
+  const proteinGrams = clamp(raw.proteinGrams, 0, 5_000);
+  const carbGrams = clamp(raw.carbGrams, 0, 5_000);
+  const fatGrams = clamp(raw.fatGrams, 0, 5_000);
+
+  const entry: ExtractedEntry = {
+    foodName: foodName.slice(0, 160),
+    quantity: clamp(raw.quantity, 0.01, 10_000, 1),
+    unit: (raw.unit || 'serving').trim().slice(0, 24) || 'serving',
+    calories: round(calories),
+    proteinGrams: round(proteinGrams),
+    carbGrams: round(carbGrams),
+    fatGrams: round(fatGrams),
+    micronutrients: sanitiseMicronutrients(raw.micronutrients),
+  };
+
+  const components = sanitiseComponents(raw.components);
 
   return {
     source: raw.source === 'nutrition_label' ? 'nutrition_label' : 'meal_photo',
     suggestedMealType: isMealType(raw.suggestedMealType) ? raw.suggestedMealType : null,
-    items,
-    totals: {
-      calories: round(totals.calories),
-      proteinGrams: round(totals.proteinGrams),
-      carbGrams: round(totals.carbGrams),
-      fatGrams: round(totals.fatGrams),
-    },
+    entry,
+    components,
     confidence: isConfidence(raw.confidence) ? raw.confidence : 'low',
-    warnings,
+    warnings: collectWarnings(entry, components),
     notes: typeof raw.notes === 'string' && raw.notes.trim() ? raw.notes.trim().slice(0, 400) : null,
   };
 }
+
+/** Values disagreeing by more than this are worth a second look from the user. */
+const DRIFT_TOLERANCE = 0.25;
+
+/**
+ * Two independent checks on the model's arithmetic: the macros against the
+ * calorie figure, and the components against the total. Neither rewrites the
+ * numbers, because there is no way to tell which side of a disagreement is the
+ * wrong one — the form is pre-filled either way, with the doubt made visible.
+ */
+function collectWarnings(
+  entry: ExtractedEntry,
+  components: { name: string; calories: number }[],
+): string[] {
+  const warnings: string[] = [];
+
+  const impliedCalories =
+    entry.proteinGrams * CALORIES_PER_GRAM.protein +
+    entry.carbGrams * CALORIES_PER_GRAM.carbs +
+    entry.fatGrams * CALORIES_PER_GRAM.fat;
+
+  if (impliedCalories > 0 && entry.calories > 0 && drifts(impliedCalories, entry.calories)) {
+    warnings.push(
+      `The macros add up to about ${Math.round(impliedCalories)} kcal, but ${Math.round(entry.calories)} kcal was read. Please check before saving.`,
+    );
+  }
+
+  const componentCalories = components.reduce((sum, item) => sum + item.calories, 0);
+
+  if (componentCalories > 0 && entry.calories > 0 && drifts(componentCalories, entry.calories)) {
+    warnings.push(
+      `The items listed come to about ${Math.round(componentCalories)} kcal, but the total says ${Math.round(entry.calories)} kcal.`,
+    );
+  }
+
+  return warnings;
+}
+
+const drifts = (a: number, b: number) => Math.abs(a - b) / Math.max(a, b) > DRIFT_TOLERANCE;
+
+/** Display-only, so a bad name or figure is dropped rather than failing the request. */
+function sanitiseComponents(input: { name: string; calories: number }[] | undefined) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .filter((item) => typeof item?.name === 'string' && item.name.trim().length > 0)
+    .slice(0, 20)
+    .map((item) => ({
+      name: item.name.trim().slice(0, 80),
+      calories: round(clamp(item.calories, 0, MAX_CALORIES)),
+    }));
+}
+
+/** At most this many, matching the prompt, so a runaway list cannot reach the form. */
+const MAX_MICRONUTRIENTS = 8;
 
 function sanitiseMicronutrients(input: { nutrient: string; amount: number }[] | undefined) {
   if (!Array.isArray(input)) {
@@ -275,7 +333,7 @@ function sanitiseMicronutrients(input: { nutrient: string; amount: number }[] | 
     });
   }
 
-  return [...byKey.values()];
+  return [...byKey.values()].slice(0, MAX_MICRONUTRIENTS);
 }
 
 const isMealType = (value: unknown): value is MealType =>
