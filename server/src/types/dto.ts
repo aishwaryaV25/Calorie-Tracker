@@ -45,7 +45,15 @@ export interface CreateEntryInput {
    * back to the UTC day of `consumedAt`.
    */
   consumedOn?: string;
+  /** Optional note on the entry. Not used in reports. */
+  notes?: string;
   micronutrients?: MicronutrientInput[];
+}
+
+export interface CreateEntriesBatchInput {
+  entries: CreateEntryInput[];
+  /** Defaults to manual. "image" when the plate was read from a photo. */
+  source?: 'manual' | 'image';
 }
 
 export type UpdateEntryInput = Partial<CreateEntryInput>;

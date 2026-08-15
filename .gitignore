@@ -16,6 +16,7 @@ out/
 *.db-journal
 *.sqlite
 server/prisma/dev.db*
+server/prisma/test.db*
 
 # Uploaded files kept out of version control
 uploads/

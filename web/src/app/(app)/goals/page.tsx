@@ -6,7 +6,7 @@ import { errorMessage } from '@/lib/auth-context';
 import { useAsync } from '@/hooks/useAsync';
 import { formatCalories, formatDateKey, formatGrams, todayKey } from '@/lib/format';
 import { Alert, Badge, Button, Card, EmptyState, Pagination, Skeleton } from '@/components/ui';
-import { GoalForm } from '@/components/goals/GoalForm';
+import { GoalComposer } from '@/components/goals/GoalComposer';
 import { GoalProgress } from '@/components/goals/GoalProgress';
 import type { Goal } from '@/lib/types';
 
@@ -15,9 +15,9 @@ const HISTORY_PAGE_SIZE = 5;
 export default function GoalsPage() {
   const today = todayKey();
   const [historyPage, setHistoryPage] = useState(1);
-  // Bumped after any save or delete so every panel on the page refetches together.
   const [revision, setRevision] = useState(0);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const current = useAsync(() => api.goals.current(today), [today, revision]);
@@ -43,6 +43,7 @@ export default function GoalsPage() {
 
     try {
       await api.goals.remove(id);
+      setNotice('That target version was deleted.');
       refreshAll();
     } catch (caught) {
       setDeleteError(errorMessage(caught));
@@ -52,122 +53,104 @@ export default function GoalsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-xl font-semibold tracking-tight">Goals</h1>
-        <p className="text-sm text-muted">
-          Set your daily targets. Saving keeps the old targets on the days they applied to, so past
-          reports stay accurate.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Set Your Goals</h1>
+        <p className="text-sm text-muted">Let&apos;s personalise your targets.</p>
       </header>
 
-      {/* The form keeps a fixed, readable width; everything to its right grows
-          with the viewport, which is where the wide history table wants to live. */}
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+      {notice && !deleteError && <Alert tone="info">{notice}</Alert>}
+
+      {current.isLoading && !current.data ? (
+        <Skeleton className="h-96 w-full" />
+      ) : (
+        <GoalComposer
+          key={goal?.id ?? 'new'}
+          currentGoal={goal}
+          onSaved={(saved) => {
+            setNotice(`Targets saved, effective from ${formatDateKey(saved.effectiveFrom)}.`);
+            refreshAll();
+          }}
+        />
+      )}
+
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <Card
-          title={goal ? 'Update your targets' : 'Set your targets'}
-          description="Calories and macros for a typical day."
+          title="Today against target"
+          description={goal ? `In force since ${formatDateKey(goal.effectiveFrom)}` : undefined}
         >
-          {current.isLoading && !current.data ? (
-            <Skeleton className="h-80 w-full" />
+          {(current.isLoading && !current.data) || (todayTotals.isLoading && !todayTotals.data) ? (
+            <Skeleton className="h-48 w-full" />
+          ) : !goal ? (
+            <EmptyState
+              title="No targets yet"
+              description="Set a daily calorie and macro target to start tracking progress against it."
+            />
           ) : (
-            // Keyed so saving a new version resets the inputs to that version.
-            <GoalForm key={goal?.id ?? 'new'} currentGoal={goal} onSaved={refreshAll} />
+            <GoalProgress
+              target={goal}
+              actual={
+                todayTotals.data?.totals ?? {
+                  calories: 0,
+                  proteinGrams: 0,
+                  carbGrams: 0,
+                  fatGrams: 0,
+                }
+              }
+            />
           )}
         </Card>
 
-        <div className="flex flex-col gap-5">
-          <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <Card
-              title="Today against target"
-              description={goal ? `In force since ${formatDateKey(goal.effectiveFrom)}` : undefined}
-            >
-              {(current.isLoading && !current.data) ||
-              (todayTotals.isLoading && !todayTotals.data) ? (
-                <Skeleton className="h-48 w-full" />
-              ) : !goal ? (
-                <EmptyState
-                  title="No targets yet"
-                  description="Set a daily calorie and macro target to start tracking progress against it."
-                />
-              ) : (
-                <GoalProgress
-                  target={goal}
-                  actual={
-                    todayTotals.data?.totals ?? {
-                      calories: 0,
-                      proteinGrams: 0,
-                      carbGrams: 0,
-                      fatGrams: 0,
-                    }
-                  }
-                />
-              )}
-            </Card>
+        <Card
+          title="History"
+          description="Every version of your targets, newest first."
+          action={
+            history.data && history.data.meta.totalItems > 0 ? (
+              <span className="text-xs text-subtle">
+                {history.data.meta.totalItems}{' '}
+                {history.data.meta.totalItems === 1 ? 'version' : 'versions'}
+              </span>
+            ) : undefined
+          }
+        >
+          {deleteError && <Alert>{deleteError}</Alert>}
+          {history.error && <Alert>{history.error}</Alert>}
 
-            {goal?.targetWeightKg != null && (
-              <Card title="Weight goal" className="sm:w-44">
-                <p className="text-2xl font-semibold tabular-nums">
-                  {goal.targetWeightKg}
-                  <span className="ml-1 text-sm font-normal text-subtle">kg</span>
-                </p>
-              </Card>
-            )}
-          </div>
-
-          <Card
-            title="History"
-            description="Every version of your targets, newest first."
-            action={
-              history.data && history.data.meta.totalItems > 0 ? (
-                <span className="text-xs text-subtle">
-                  {history.data.meta.totalItems}{' '}
-                  {history.data.meta.totalItems === 1 ? 'version' : 'versions'}
-                </span>
-              ) : undefined
-            }
-          >
-            {deleteError && <Alert>{deleteError}</Alert>}
-            {history.error && <Alert>{history.error}</Alert>}
-
-            {history.isLoading && !history.data ? (
-              <Skeleton className="h-32 w-full" />
-            ) : !history.data || history.data.data.length === 0 ? (
-              <EmptyState
-                title="Nothing saved yet"
-                description="Your goal history will build up here each time you change your targets."
+          {history.isLoading && !history.data ? (
+            <Skeleton className="h-32 w-full" />
+          ) : !history.data || history.data.data.length === 0 ? (
+            <EmptyState
+              title="Nothing saved yet"
+              description="Your goal history will build up here each time you change your targets."
+            />
+          ) : (
+            <>
+              <GoalHistoryList
+                goals={history.data.data}
+                currentGoalId={goal?.id ?? null}
+                deletingId={deletingId}
+                onDelete={handleDelete}
               />
-            ) : (
-              <>
-                <GoalHistoryList
-                  goals={history.data.data}
-                  currentGoalId={goal?.id ?? null}
-                  deletingId={deletingId}
-                  onDelete={handleDelete}
-                />
-
-                <Pagination {...history.data.meta} onPageChange={setHistoryPage} />
-              </>
-            )}
-          </Card>
-        </div>
+              <Pagination {...history.data.meta} onPageChange={setHistoryPage} />
+            </>
+          )}
+        </Card>
       </div>
     </div>
   );
 }
 
-interface GoalHistoryListProps {
+function GoalHistoryList({
+  goals,
+  currentGoalId,
+  deletingId,
+  onDelete,
+}: {
   goals: Goal[];
   currentGoalId: string | null;
   deletingId: string | null;
   onDelete: (id: string) => void;
-}
-
-/**
- * Cards on narrow screens and a table on wide ones: the same six numbers are
- * unreadable squeezed into a phone-width table.
- */
-function GoalHistoryList({ goals, currentGoalId, deletingId, onDelete }: GoalHistoryListProps) {
+}) {
   return (
     <>
       <ul className="flex flex-col divide-y divide-border md:hidden">
@@ -178,9 +161,7 @@ function GoalHistoryList({ goals, currentGoalId, deletingId, onDelete }: GoalHis
                 <span className="text-sm font-medium">{formatDateKey(entry.effectiveFrom)}</span>
                 {entry.id === currentGoalId && <Badge tone="accent">Active</Badge>}
               </div>
-              <span className="text-sm tabular-nums">
-                {formatCalories(entry.dailyCalories)} kcal
-              </span>
+              <span className="text-sm tabular-nums">{formatCalories(entry.dailyCalories)} kcal</span>
             </div>
             <p className="text-xs text-muted">
               {formatGrams(entry.proteinGrams)}g protein · {formatGrams(entry.carbGrams)}g carbs ·{' '}
@@ -221,12 +202,8 @@ function GoalHistoryList({ goals, currentGoalId, deletingId, onDelete }: GoalHis
                     {entry.id === currentGoalId && <Badge tone="accent">Active</Badge>}
                   </div>
                 </td>
-                <td className="py-2.5 text-right tabular-nums">
-                  {formatCalories(entry.dailyCalories)}
-                </td>
-                <td className="py-2.5 text-right tabular-nums">
-                  {formatGrams(entry.proteinGrams)}g
-                </td>
+                <td className="py-2.5 text-right tabular-nums">{formatCalories(entry.dailyCalories)}</td>
+                <td className="py-2.5 text-right tabular-nums">{formatGrams(entry.proteinGrams)}g</td>
                 <td className="py-2.5 text-right tabular-nums">{formatGrams(entry.carbGrams)}g</td>
                 <td className="py-2.5 text-right tabular-nums">{formatGrams(entry.fatGrams)}g</td>
                 <td className="py-2.5 text-right tabular-nums text-muted">

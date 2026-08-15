@@ -9,7 +9,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { formatCalories, formatDateKey, formatGrams } from '@/lib/format';
 import { Alert, Button, Card, EmptyState, Pagination, Select, Skeleton } from '@/components/ui';
 import {
-  DEFAULT_FILTERS,
+  defaultFilters,
   EntriesFilters,
   type EntryFilterState,
 } from '@/components/entries/EntriesFilters';
@@ -20,7 +20,7 @@ import type { FoodEntry } from '@/lib/types';
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 export default function EntriesPage() {
-  const [filters, setFilters] = useState<EntryFilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<EntryFilterState>(defaultFilters);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
@@ -130,13 +130,11 @@ export default function EntriesPage() {
     <div className="flex flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Entries</h1>
-          <p className="text-sm text-muted">
-            Every meal you have logged, filtered by date range, meal type or name.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">Entries</h1>
+          <p className="text-sm text-muted">Everything you&apos;ve logged, searchable and filterable.</p>
         </div>
         <Link href="/log">
-          <Button>Log a meal</Button>
+          <Button>+ Log a meal</Button>
         </Link>
       </header>
 
@@ -144,25 +142,32 @@ export default function EntriesPage() {
         <EntriesFilters value={filters} onChange={applyFilters} />
       </Card>
 
-      {totals && meta && meta.totalItems > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <SummaryTile label="Entries" value={meta.totalItems.toLocaleString()} />
-          <SummaryTile label="Calories" value={`${formatCalories(totals.calories)} kcal`} />
-          <SummaryTile label="Protein" value={`${formatGrams(totals.proteinGrams)} g`} />
-          <SummaryTile label="Carbs" value={`${formatGrams(totals.carbGrams)} g`} />
-          <SummaryTile label="Fat" value={`${formatGrams(totals.fatGrams)} g`} />
-        </div>
-      )}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <SummaryTile label="Entries" value={(meta?.totalItems ?? 0).toLocaleString()} />
+        <SummaryTile
+          label="Calories"
+          value={`${formatCalories(totals?.calories ?? 0)} kcal`}
+        />
+        <SummaryTile label="Protein" value={`${formatGrams(totals?.proteinGrams ?? 0)} g`} />
+        <SummaryTile label="Carbs" value={`${formatGrams(totals?.carbGrams ?? 0)} g`} />
+        <SummaryTile label="Fat" value={`${formatGrams(totals?.fatGrams ?? 0)} g`} />
+      </div>
 
       {actionError && <Alert>{actionError}</Alert>}
       {entries.error && <Alert>{entries.error}</Alert>}
       {notice && !actionError && <Alert tone="info">{notice}</Alert>}
 
       <Card
-        title="Results"
+        title={
+          filters.from && filters.to
+            ? filters.from === filters.to
+              ? formatDateKey(filters.from, 'd MMMM yyyy')
+              : `${formatDateKey(filters.from, 'd MMM')} – ${formatDateKey(filters.to, 'd MMM yyyy')}`
+            : 'All entries'
+        }
         description={
           meta
-            ? `Showing ${rows.length} of ${meta.totalItems} ${meta.totalItems === 1 ? 'entry' : 'entries'}`
+            ? `${meta.totalItems} ${meta.totalItems === 1 ? 'result' : 'results'}`
             : undefined
         }
         action={

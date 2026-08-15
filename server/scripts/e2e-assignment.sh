@@ -42,6 +42,14 @@ done
 curl -s -o /dev/null -X POST "$BASE/entries" -H "$AUTH_A" -H 'Content-Type: application/json' \
   -d "{\"foodName\":\"Yesterday oats\",\"mealType\":\"breakfast\",\"quantity\":1,\"unit\":\"bowl\",\"calories\":350,\"consumedOn\":\"$YEST\"}"
 echo -n "  Alice today total items: "; curl -s "$BASE/entries?from=$TODAY&to=$TODAY&pageSize=1" -H "$AUTH_A" | pick meta.totalItems
+ENTRY_ID=$(curl -s "$BASE/entries?from=$TODAY&to=$TODAY&search=lunch&pageSize=1" -H "$AUTH_A" | pick data.0.id)
+echo -n "  patch lunch name: "; curl -s -X PATCH "$BASE/entries/$ENTRY_ID" -H "$AUTH_A" -H 'Content-Type: application/json' \
+  -d '{"foodName":"lunch item updated"}' | pick foodName
+echo -n "  delete lunch: "; curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE/entries/$ENTRY_ID" -H "$AUTH_A"; echo
+curl -s -o /dev/null -X POST "$BASE/goals" -H "$AUTH_A" -H 'Content-Type: application/json' \
+  -d "{\"dailyCalories\":2100,\"proteinGrams\":140,\"carbGrams\":220,\"fatGrams\":65,\"effectiveFrom\":\"$TODAY\"}"
+GOAL_OLD=$(curl -s "$BASE/goals?page=1&pageSize=5" -H "$AUTH_A" | pick data.1.id)
+echo -n "  delete older goal: "; curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE/goals/$GOAL_OLD" -H "$AUTH_A"; echo
 
 echo "== time-range listing + filters + pagination =="
 echo -n "  range yesterday-today: "; curl -s "$BASE/entries?from=$YEST&to=$TODAY&pageSize=2" -H "$AUTH_A" | pick meta.totalItems

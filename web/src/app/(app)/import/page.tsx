@@ -6,10 +6,12 @@ import { api } from '@/lib/api-client';
 import { errorMessage } from '@/lib/auth-context';
 import { useAsync } from '@/hooks/useAsync';
 import { formatCalories, todayKey } from '@/lib/format';
-import { Alert, Badge, Button, Card, EmptyState, Input, Select } from '@/components/ui';
+import { Alert, Badge, Button, EmptyState, Input, Select, cx } from '@/components/ui';
 import { MEAL_LABELS, MEAL_TYPES, type ImportDraftRow, type ImportPreview, type MealType } from '@/lib/types';
 
 const ACCEPT = 'application/pdf';
+
+type Step = 'upload' | 'extract' | 'review' | 'import';
 
 export default function ImportPage() {
   const today = todayKey();
@@ -24,6 +26,14 @@ export default function ImportPage() {
 
   const status = useAsync(() => api.imports.status(), []);
   const deepAvailable = status.data?.deepAnalyseAvailable ?? false;
+
+  const step: Step = isSaving
+    ? 'import'
+    : preview
+      ? 'review'
+      : isParsing || file
+        ? 'extract'
+        : 'upload';
 
   async function parse(nextFile: File, mode: 'script' | 'gemini') {
     setIsParsing(true);
@@ -50,7 +60,20 @@ export default function ImportPage() {
     }
 
     setFile(next);
+    setPreview(null);
+    setRows([]);
     void parse(next, 'script');
+  }
+
+  function reset() {
+    setFile(null);
+    setPreview(null);
+    setRows([]);
+    setError(null);
+    setSavedCount(null);
+    if (inputRef.current) {
+      inputRef.current.value = '';
+    }
   }
 
   async function save() {
@@ -80,230 +103,300 @@ export default function ImportPage() {
   }
 
   const totalCalories = rows.reduce((sum, row) => sum + (Number(row.calories) || 0), 0);
+  const uniqueDays = new Set(rows.map((row) => row.consumedOn)).size;
+  const uniqueFoods = new Set(rows.map((row) => row.foodName.trim().toLowerCase()).filter(Boolean)).size;
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Import PDF</h1>
-          <p className="text-sm text-muted">
-            Upload a food diary. A local script fills the table first; Deep Analyse asks Gemini only
-            if that reading is wrong.
-          </p>
-        </div>
-        <Link href="/entries">
-          <Button variant="secondary">See entries</Button>
-        </Link>
+    <div className="flex flex-col gap-6">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight">Bulk import</h1>
+        <p className="text-sm text-muted">
+          Upload a food diary, nutrition report or meal history and let the app structure it.
+        </p>
       </header>
 
       {error && <Alert>{error}</Alert>}
 
       {savedCount !== null && (
         <Alert tone="info">
-          Saved {savedCount} {savedCount === 1 ? 'meal' : 'meals'} to your diary. They now count
-          toward Today, Entries and Reports.{' '}
+          Saved {savedCount} {savedCount === 1 ? 'meal' : 'meals'} to your diary.{' '}
           <Link href="/entries" className="underline">
             Open entries
           </Link>
         </Alert>
       )}
 
-      <Card
-        title="Diary file"
-        description={file ? file.name : 'PDF, up to 10 MB. Tables, CSV dumps and simple lists all work.'}
-      >
-        <div
-          className="flex min-h-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-strong bg-surface-raised px-6 py-8 text-center"
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
-            takeFile(event.dataTransfer.files[0] ?? null);
-          }}
-          onClick={() => inputRef.current?.click()}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(13rem,14rem)_minmax(0,1fr)]">
+        <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-[0_1px_2px_rgb(17_17_19/0.04)]">
+          <label
+            htmlFor="bulk-import-file"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
               event.preventDefault();
-              inputRef.current?.click();
-            }
-          }}
-        >
-          <p className="text-sm">{isParsing ? 'Reading the PDF…' : file ? file.name : 'Drop a PDF here, or click to choose one'}</p>
-          <p className="text-xs text-subtle">
-            The first pass never calls an LLM. Deep Analyse is a separate click.
-          </p>
+              takeFile(event.dataTransfer.files[0] ?? null);
+            }}
+            className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-strong px-3 py-6 text-center"
+          >
+            <span className="flex size-9 items-center justify-center rounded-full bg-accent-soft text-accent">
+              <PdfIcon />
+            </span>
+            <div>
+              <p className="text-sm font-medium leading-snug">Drop your PDF here or click to browse</p>
+              <p className="mt-1 text-xs text-subtle">PDF up to 10 MB</p>
+            </div>
+          </label>
           <input
+            id="bulk-import-file"
             ref={inputRef}
             type="file"
             accept={ACCEPT}
             className="sr-only"
             onChange={(event) => takeFile(event.target.files?.[0] ?? null)}
           />
-        </div>
-      </Card>
 
-      {preview && (
-        <Card
-          title="Preview"
-          description={
-            preview.notes ??
-            (rows.length === 0
-              ? 'Nothing mapped yet'
-              : `${rows.length} ${rows.length === 1 ? 'row' : 'rows'} · ${formatCalories(totalCalories)} kcal`)
-          }
-          action={
-            file && (
-              <Button
-                variant="secondary"
-                onClick={() => void parse(file, 'gemini')}
-                isLoading={isParsing}
-                disabled={isParsing || !deepAvailable}
-                title={
-                  deepAvailable
-                    ? 'Send the PDF to Gemini and replace this table'
-                    : 'Add GEMINI_API_KEY on the server to enable Deep Analyse'
-                }
-              >
-                Not satisfied? Deep Analyse
-              </Button>
-            )
-          }
-        >
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-subtle">
-            <Badge tone={preview.method === 'gemini' ? 'accent' : 'neutral'}>
-              {preview.method === 'gemini' ? 'Gemini' : 'Script'}
-            </Badge>
-            {preview.schema && <span>Mapped as {preview.schema}</span>}
-            <span>
-              {preview.pageCount} {preview.pageCount === 1 ? 'page' : 'pages'}
-            </span>
-            {!deepAvailable && (
-              <span>Deep Analyse is off until a Gemini key is set on the server.</span>
-            )}
+          <div>
+            <h2 className="mb-3 text-sm font-semibold">Processing</h2>
+            <ol className="grid grid-cols-4 gap-1">
+              <StepPill n={1} label="Uploading" state={stepState(step, 'upload')} />
+              <StepPill n={2} label="Extracting" state={stepState(step, 'extract')} />
+              <StepPill n={3} label="Reviewing" state={stepState(step, 'review')} />
+              <StepPill n={4} label="Importing" state={stepState(step, 'import')} />
+            </ol>
           </div>
 
-          {preview.warnings.map((warning) => (
-            <Alert key={warning} tone="warning">
-              {warning}
-            </Alert>
-          ))}
+          {file && (
+            <div className="rounded-xl bg-surface-raised p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{file.name}</p>
+                  <p className="mt-0.5 text-xs text-muted">
+                    {isParsing
+                      ? 'Extracting the diary…'
+                      : preview
+                        ? `${rows.length} ${rows.length === 1 ? 'entry' : 'entries'} ready to review`
+                        : 'Waiting to extract'}
+                  </p>
+                </div>
+                <Badge tone={preview?.method === 'gemini' ? 'accent' : 'neutral'}>
+                  {isParsing ? 'Working' : preview?.method === 'gemini' ? 'Gemini' : 'Script'}
+                </Badge>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-border">
+                <div
+                  className={cx(
+                    'h-full rounded-full bg-accent transition-all',
+                    isParsing ? 'w-2/3 animate-pulse' : preview ? 'w-full' : 'w-1/4',
+                  )}
+                />
+              </div>
+              {preview && (
+                <p className="mt-3 text-xs text-muted">
+                  {rows.length} {rows.length === 1 ? 'entry' : 'entries'}
+                  {uniqueDays > 0 && ` · ${uniqueDays} ${uniqueDays === 1 ? 'day' : 'days'} of data`}
+                  {uniqueFoods > 0 && ` · ${uniqueFoods} unique ${uniqueFoods === 1 ? 'food' : 'foods'}`}
+                  {preview.pageCount > 0 &&
+                    ` · ${preview.pageCount} ${preview.pageCount === 1 ? 'page' : 'pages'}`}
+                </p>
+              )}
+            </div>
+          )}
 
-          {rows.length === 0 ? (
+          {file && deepAvailable && (
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full px-3 text-xs"
+              onClick={() => void parse(file, 'gemini')}
+              isLoading={isParsing}
+              disabled={isParsing}
+            >
+              Not satisfied? Deep Analyse
+            </Button>
+          )}
+        </section>
+
+        <section className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-[0_1px_2px_rgb(17_17_19/0.04)]">
+          <header>
+            <h2 className="text-sm font-semibold">Review & confirm</h2>
+            <p className="mt-0.5 text-xs text-subtle">
+              {preview
+                ? 'Check these entries before they are saved. Macros stay editable because every diary row needs them.'
+                : 'Extracted meals will appear here.'}
+            </p>
+          </header>
+
+          {!preview ? (
             <EmptyState
-              title="No meals in the preview"
-              description="The script could not map this file. If Deep Analyse is available, try that — Gemini reads scans and unusual column names."
+              title="Nothing to review yet"
+              description="Drop a PDF on the left. A local script fills this table first."
             />
           ) : (
             <>
-              <div className="mt-3 overflow-x-auto">
-                <table className="w-full min-w-[880px] border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-foreground text-left text-[11px] font-semibold tracking-wide text-surface">
-                      <th className="px-2 py-2">Date</th>
-                      <th className="px-2 py-2">Meal</th>
-                      <th className="px-2 py-2">Food</th>
-                      <th className="px-2 py-2 text-right">Qty</th>
-                      <th className="px-2 py-2">Unit</th>
-                      <th className="px-2 py-2 text-right">kcal</th>
-                      <th className="px-2 py-2 text-right">P</th>
-                      <th className="px-2 py-2 text-right">C</th>
-                      <th className="px-2 py-2 text-right">F</th>
-                      <th className="px-2 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row, index) => (
-                      <tr
-                        key={`${row.foodName}-${index}`}
-                        className={index % 2 === 1 ? 'bg-surface-raised' : undefined}
-                      >
-                        <td className="px-1 py-1">
-                          <Input
-                            type="date"
-                            className="min-w-[9.5rem] px-2 py-1 text-xs"
-                            value={row.consumedOn}
-                            onChange={(event) => updateRow(index, { consumedOn: event.target.value })}
-                          />
-                        </td>
-                        <td className="px-1 py-1">
-                          <Select
-                            className="min-w-[7.5rem] px-2 py-1 text-xs"
-                            value={row.mealType}
-                            onChange={(event) =>
-                              updateRow(index, { mealType: event.target.value as MealType })
-                            }
-                          >
-                            {MEAL_TYPES.map((type) => (
-                              <option key={type} value={type}>
-                                {MEAL_LABELS[type]}
-                              </option>
-                            ))}
-                          </Select>
-                        </td>
-                        <td className="px-1 py-1">
-                          <Input
-                            className="min-w-[12rem] px-2 py-1 text-xs"
-                            value={row.foodName}
-                            onChange={(event) => updateRow(index, { foodName: event.target.value })}
-                          />
-                        </td>
-                        <NumberCell
-                          value={row.quantity}
-                          onChange={(quantity) => updateRow(index, { quantity })}
-                        />
-                        <td className="px-1 py-1">
-                          <Input
-                            className="w-20 px-2 py-1 text-xs"
-                            value={row.unit}
-                            onChange={(event) => updateRow(index, { unit: event.target.value })}
-                          />
-                        </td>
-                        <NumberCell
-                          value={row.calories}
-                          onChange={(calories) => updateRow(index, { calories })}
-                        />
-                        <NumberCell
-                          value={row.proteinGrams}
-                          onChange={(proteinGrams) => updateRow(index, { proteinGrams })}
-                        />
-                        <NumberCell
-                          value={row.carbGrams}
-                          onChange={(carbGrams) => updateRow(index, { carbGrams })}
-                        />
-                        <NumberCell
-                          value={row.fatGrams}
-                          onChange={(fatGrams) => updateRow(index, { fatGrams })}
-                        />
-                        <td className="px-1 py-1">
-                          <Button
-                            variant="ghost"
-                            className="px-2 py-1 text-xs hover:text-danger"
-                            onClick={() => removeRow(index)}
-                          >
-                            Remove
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {preview.warnings.map((warning) => (
+                <Alert key={warning} tone="warning">
+                  {warning}
+                </Alert>
+              ))}
 
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              {rows.length === 0 ? (
+                <EmptyState
+                  title="No meals in the preview"
+                  description="The script could not map this file. If Deep Analyse is available, try that."
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full table-fixed border-collapse text-sm">
+                    <colgroup>
+                      <col className="w-[8rem]" />
+                      <col className="w-[6.5rem]" />
+                      <col />
+                      <col className="w-[3.5rem]" />
+                      <col className="w-[3.5rem]" />
+                      <col className="w-[3.75rem]" />
+                      <col className="w-[3.25rem]" />
+                      <col className="w-[3.25rem]" />
+                      <col className="w-[3.25rem]" />
+                      <col className="w-[2.5rem]" />
+                    </colgroup>
+                    <thead>
+                      <tr className="border-b border-border text-left text-[11px] font-semibold text-subtle">
+                        <th className="px-1.5 py-2">Date</th>
+                        <th className="px-1.5 py-2">Meal</th>
+                        <th className="px-1.5 py-2">Food</th>
+                        <th className="px-1.5 py-2 text-right">Qty</th>
+                        <th className="px-1.5 py-2">Unit</th>
+                        <th className="px-1.5 py-2 text-right">Cal</th>
+                        <th className="px-1.5 py-2 text-right">P</th>
+                        <th className="px-1.5 py-2 text-right">C</th>
+                        <th className="px-1.5 py-2 text-right">F</th>
+                        <th className="px-1.5 py-2" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row, index) => (
+                        <tr key={`${row.foodName}-${index}`} className="border-b border-border/70">
+                          <td className="px-1 py-1">
+                            <Input
+                              type="date"
+                              className="px-1.5 py-1 text-xs"
+                              value={row.consumedOn}
+                              onChange={(event) => updateRow(index, { consumedOn: event.target.value })}
+                            />
+                          </td>
+                          <td className="px-1 py-1">
+                            <Select
+                              className="px-1.5 py-1 text-xs"
+                              value={row.mealType}
+                              onChange={(event) =>
+                                updateRow(index, { mealType: event.target.value as MealType })
+                              }
+                            >
+                              {MEAL_TYPES.map((type) => (
+                                <option key={type} value={type}>
+                                  {MEAL_LABELS[type]}
+                                </option>
+                              ))}
+                            </Select>
+                          </td>
+                          <td className="px-1 py-1">
+                            <Input
+                              className="px-1.5 py-1 text-xs"
+                              title={row.foodName}
+                              value={row.foodName}
+                              onChange={(event) => updateRow(index, { foodName: event.target.value })}
+                            />
+                          </td>
+                          <NumberCell
+                            value={row.quantity}
+                            onChange={(quantity) => updateRow(index, { quantity })}
+                          />
+                          <td className="px-1 py-1">
+                            <Input
+                              className="px-1.5 py-1 text-xs"
+                              value={row.unit}
+                              onChange={(event) => updateRow(index, { unit: event.target.value })}
+                            />
+                          </td>
+                          <NumberCell
+                            value={row.calories}
+                            onChange={(calories) => updateRow(index, { calories })}
+                          />
+                          <NumberCell
+                            value={row.proteinGrams}
+                            onChange={(proteinGrams) => updateRow(index, { proteinGrams })}
+                          />
+                          <NumberCell
+                            value={row.carbGrams}
+                            onChange={(carbGrams) => updateRow(index, { carbGrams })}
+                          />
+                          <NumberCell
+                            value={row.fatGrams}
+                            onChange={(fatGrams) => updateRow(index, { fatGrams })}
+                          />
+                          <td className="px-1 py-1">
+                            <Button
+                              variant="ghost"
+                              aria-label={`Remove ${row.foodName || 'entry'}`}
+                              className="w-full px-1 py-1 text-base leading-none text-muted hover:text-danger"
+                              onClick={() => removeRow(index)}
+                            >
+                              ×
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted">
-                  {rows.length} {rows.length === 1 ? 'meal' : 'meals'} · {formatCalories(totalCalories)}{' '}
+                  {rows.length} {rows.length === 1 ? 'entry' : 'entries'} · {formatCalories(totalCalories)}{' '}
                   kcal
                 </p>
-                <Button onClick={() => void save()} isLoading={isSaving} disabled={rows.length === 0}>
-                  Save to diary
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="secondary" onClick={reset}>
+                    Back
+                  </Button>
+                  <Button onClick={() => void save()} isLoading={isSaving} disabled={rows.length === 0}>
+                    Import {rows.length} {rows.length === 1 ? 'entry' : 'entries'}
+                  </Button>
+                </div>
               </div>
             </>
           )}
-        </Card>
-      )}
+        </section>
+      </div>
     </div>
+  );
+}
+
+function stepState(current: Step, target: Step): 'done' | 'active' | 'pending' {
+  const order: Step[] = ['upload', 'extract', 'review', 'import'];
+  const here = order.indexOf(current);
+  const there = order.indexOf(target);
+
+  if (there < here) return 'done';
+  if (there === here) return 'active';
+  return 'pending';
+}
+
+function StepPill({ n, label, state }: { n: number; label: string; state: 'done' | 'active' | 'pending' }) {
+  return (
+    <li className="flex flex-col items-center gap-1.5 text-center">
+      <span
+        className={cx(
+          'flex size-7 items-center justify-center rounded-full text-xs font-semibold',
+          state === 'pending' ? 'bg-surface-raised text-subtle' : 'bg-accent text-on-accent',
+        )}
+      >
+        {n}
+      </span>
+      <span className={cx('text-[10px] leading-tight', state === 'pending' ? 'text-subtle' : 'font-medium text-foreground')}>
+        {label}
+      </span>
+    </li>
   );
 }
 
@@ -314,10 +407,28 @@ function NumberCell({ value, onChange }: { value: number; onChange: (value: numb
         type="number"
         min={0}
         step="any"
-        className="w-20 px-2 py-1 text-right text-xs tabular-nums"
+        className="appearance-none px-1 py-1 text-right text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         value={Number.isFinite(value) ? value : 0}
         onChange={(event) => onChange(Number(event.target.value))}
       />
     </td>
+  );
+}
+
+function PdfIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="size-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z" />
+      <path d="M14 3v6h6" />
+    </svg>
   );
 }

@@ -32,6 +32,7 @@ export interface EntryDto {
   consumedAt: string;
   consumedOn: string;
   source: EntrySource;
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +63,7 @@ function toEntryDto(entry: EntryRecord): EntryDto {
     consumedAt: entry.consumedAt.toISOString(),
     consumedOn: entry.consumedOn.toISOString().slice(0, 10),
     source: entry.source as EntrySource,
+    notes: entry.notes,
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString(),
   };
@@ -192,6 +194,7 @@ function buildCreateData(userId: string, input: CreateEntryInput, source: EntryS
     consumedAt,
     consumedOn: resolveConsumedOn(input, consumedAt),
     source,
+    notes: input.notes?.trim() ? input.notes.trim().slice(0, 500) : null,
     micronutrients: { create: normaliseMicronutrients(input.micronutrients) },
   };
 }
@@ -243,12 +246,15 @@ export async function updateEntry(
   // would happily modify another user's row.
   await assertEntryExists(userId, id);
 
-  const { micronutrients, consumedAt, consumedOn, ...rest } = input;
+  const { micronutrients, consumedAt, consumedOn, notes, ...rest } = input;
 
   const entry = await prisma.foodEntry.update({
     where: { id },
     data: {
       ...rest,
+      ...(notes !== undefined
+        ? { notes: notes.trim() ? notes.trim().slice(0, 500) : null }
+        : {}),
       ...(consumedAt ? { consumedAt } : {}),
       // The day moves when either the timestamp or the day itself changes, and
       // an explicit `consumedOn` always wins over one inferred from the instant.

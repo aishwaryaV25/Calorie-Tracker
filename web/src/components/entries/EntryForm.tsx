@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/auth-context';
 import { Alert, Button, Field, Input, Select } from '@/components/ui';
 import { PhotoExtract } from './PhotoExtract';
+import { MicronutrientFields } from './MicronutrientFields';
 import { MEAL_LABELS, MEAL_TYPES, type FoodEntry, type MealType, type Micronutrient } from '@/lib/types';
 
 export interface EntryFormProps {
@@ -70,10 +71,6 @@ const initialValues = (entry: FoodEntry | null | undefined, mealType: MealType):
         consumedAt: toLocalInputValue(),
       };
 
-/** A blank numeric field means "not provided" rather than zero. */
-const optionalNumber = (value: string): number | undefined =>
-  value.trim() === '' ? undefined : Number(value);
-
 /**
  * The meal entry form. Used both inside the dialog on the dashboard and as the
  * full-page Log Meal view, so the two cannot drift apart.
@@ -122,6 +119,22 @@ export function EntryForm({
       return;
     }
 
+    const missing: { field: string; message: string }[] = [];
+    if (!values.foodName.trim()) missing.push({ field: 'foodName', message: 'Food name is required.' });
+    if (!values.quantity.trim() || Number(values.quantity) <= 0) {
+      missing.push({ field: 'quantity', message: 'Quantity must be greater than zero.' });
+    }
+    if (!values.unit.trim()) missing.push({ field: 'unit', message: 'Unit is required.' });
+    if (values.calories.trim() === '') missing.push({ field: 'calories', message: 'Calories are required.' });
+    if (values.proteinGrams.trim() === '') missing.push({ field: 'proteinGrams', message: 'Protein is required.' });
+    if (values.carbGrams.trim() === '') missing.push({ field: 'carbGrams', message: 'Carbs are required.' });
+    if (values.fatGrams.trim() === '') missing.push({ field: 'fatGrams', message: 'Fat is required.' });
+
+    if (missing.length > 0) {
+      setError(new ApiError(400, 'VALIDATION_ERROR', 'Fill in the required fields.', missing));
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -131,9 +144,9 @@ export function EntryForm({
         quantity: Number(values.quantity),
         unit: values.unit.trim(),
         calories: Number(values.calories),
-        proteinGrams: optionalNumber(values.proteinGrams),
-        carbGrams: optionalNumber(values.carbGrams),
-        fatGrams: optionalNumber(values.fatGrams),
+        proteinGrams: Number(values.proteinGrams),
+        carbGrams: Number(values.carbGrams),
+        fatGrams: Number(values.fatGrams),
         consumedAt,
         // The date exactly as it was picked. Sent alongside the instant because
         // the server cannot tell which calendar day a UTC timestamp belongs to
@@ -197,7 +210,7 @@ export function EntryForm({
         />
       )}
 
-      <Field label="Food" htmlFor="foodName" error={fieldError('foodName')}>
+      <Field label="Food name" htmlFor="foodName" error={fieldError('foodName')} required>
         <Input
           id="foodName"
           value={values.foodName}
@@ -235,7 +248,7 @@ export function EntryForm({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Field label="Quantity" htmlFor="quantity" error={fieldError('quantity')}>
+        <Field label="Quantity" htmlFor="quantity" error={fieldError('quantity')} required>
           <Input
             id="quantity"
             type="number"
@@ -248,7 +261,7 @@ export function EntryForm({
           />
         </Field>
 
-        <Field label="Unit" htmlFor="unit" error={fieldError('unit')}>
+        <Field label="Unit" htmlFor="unit" error={fieldError('unit')} required>
           <Input
             id="unit"
             value={values.unit}
@@ -258,7 +271,7 @@ export function EntryForm({
           />
         </Field>
 
-        <Field label="Calories" htmlFor="calories" error={fieldError('calories')}>
+        <Field label="Calories" htmlFor="calories" error={fieldError('calories')} required>
           <Input
             id="calories"
             type="number"
@@ -273,8 +286,10 @@ export function EntryForm({
       </div>
 
       <fieldset className="grid gap-3 sm:grid-cols-3">
-        <legend className="mb-1.5 text-sm font-medium">Macros (grams, optional)</legend>
-        <Field label="Protein" htmlFor="proteinGrams" error={fieldError('proteinGrams')}>
+        <legend className="mb-1.5 text-sm font-medium">
+          Macros (grams) <span className="text-accent">*</span>
+        </legend>
+        <Field label="Protein" htmlFor="proteinGrams" error={fieldError('proteinGrams')} required>
           <Input
             id="proteinGrams"
             type="number"
@@ -285,7 +300,7 @@ export function EntryForm({
             onChange={(event) => setValue('proteinGrams', event.target.value)}
           />
         </Field>
-        <Field label="Carbs" htmlFor="carbGrams" error={fieldError('carbGrams')}>
+        <Field label="Carbs" htmlFor="carbGrams" error={fieldError('carbGrams')} required>
           <Input
             id="carbGrams"
             type="number"
@@ -296,7 +311,7 @@ export function EntryForm({
             onChange={(event) => setValue('carbGrams', event.target.value)}
           />
         </Field>
-        <Field label="Fat" htmlFor="fatGrams" error={fieldError('fatGrams')}>
+        <Field label="Fat" htmlFor="fatGrams" error={fieldError('fatGrams')} required>
           <Input
             id="fatGrams"
             type="number"
@@ -309,32 +324,7 @@ export function EntryForm({
         </Field>
       </fieldset>
 
-      {micronutrients.length > 0 && (
-        <div className="rounded-lg bg-surface-raised p-3">
-          <p className="mb-2 text-xs font-medium text-muted">Micronutrients</p>
-          <ul className="flex flex-wrap gap-2">
-            {micronutrients.map((item) => (
-              <li key={item.nutrient} className="flex items-center gap-1.5 text-xs">
-                <span className="rounded-full bg-surface px-2 py-1">
-                  {item.label}: {item.amount} {item.unit}
-                </span>
-                <button
-                  type="button"
-                  aria-label={`Remove ${item.label}`}
-                  className="text-muted hover:text-danger"
-                  onClick={() =>
-                    setMicronutrients((current) =>
-                      current.filter((nutrient) => nutrient.nutrient !== item.nutrient),
-                    )
-                  }
-                >
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <MicronutrientFields idPrefix="entry-micro" value={micronutrients} onChange={setMicronutrients} />
 
       <div className="mt-1 flex justify-end gap-2">
         {onCancel && (

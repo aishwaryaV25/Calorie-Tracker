@@ -12,15 +12,12 @@ import { AiResponseError, createCompletion, parseJsonContent } from '../lib/ai-c
 import { unprocessable } from '../lib/errors.js';
 
 /**
- * The photo is analysed and returned as a *draft* that pre-fills the entry form.
- * Nothing is written to the database here: vision estimates are approximate, so
- * the user reviews and corrects the numbers before saving.
+ * The photo is analysed and returned as a *draft*. Nothing is written here:
+ * vision estimates are approximate, so the user reviews the numbers first.
  *
- * The model returns exactly one entry rather than a list to choose from. A plate
- * of food is one thing the user ate, and the form it fills has one set of
- * fields, so anything else would leave the client picking or summing on the
- * model's behalf. The individual foods still come back in `components`, but as
- * a description of how the total was reached, not as options.
+ * `entry` is the whole-plate (or whole-label) total, used to pre-fill a single
+ * form. `components` are the foods on the plate, each with its own portion and
+ * macros, so a multi-item log page can save one diary row per food.
  */
 
 export interface ExtractedEntry {
@@ -34,13 +31,23 @@ export interface ExtractedEntry {
   micronutrients: { nutrient: string; label: string; amount: number; unit: string }[];
 }
 
+export interface ExtractedComponent {
+  name: string;
+  quantity: number;
+  unit: string;
+  calories: number;
+  proteinGrams: number;
+  carbGrams: number;
+  fatGrams: number;
+}
+
 export interface ExtractionResult {
   source: 'nutrition_label' | 'meal_photo';
   suggestedMealType: MealType | null;
-  /** Ready to drop straight into the entry form. */
+  /** Ready to drop straight into a single-entry form. */
   entry: ExtractedEntry;
-  /** The foods that make up the entry, for display only. */
-  components: { name: string; calories: number }[];
+  /** Foods on the plate, each ready to become its own diary row. */
+  components: ExtractedComponent[];
   /** Model's own confidence, surfaced so the UI can prompt for a closer look. */
   confidence: 'high' | 'medium' | 'low';
   warnings: string[];
@@ -61,7 +68,17 @@ interface RawExtraction {
   carbGrams: number;
   fatGrams: number;
   micronutrients: { nutrient: string; amount: number }[];
-  components: { name: string; calories: number }[];
+  components: RawComponent[];
+}
+
+interface RawComponent {
+  name: string;
+  calories: number;
+  quantity?: number;
+  unit?: string;
+  proteinGrams?: number;
+  carbGrams?: number;
+  fatGrams?: number;
 }
 
 const responseSchema = {
@@ -123,10 +140,15 @@ const responseSchema = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['name', 'calories'],
+        required: ['name', 'quantity', 'unit', 'calories', 'proteinGrams', 'carbGrams', 'fatGrams'],
         properties: {
-          name: { type: 'string', description: 'Food and portion, e.g. "2 slices white bread".' },
+          name: { type: 'string', description: 'Food name only, e.g. "white bread".' },
+          quantity: { type: 'number', description: 'Portion amount for this food.' },
+          unit: { type: 'string', description: 'For example g, cup, slice, serving.' },
           calories: { type: 'number' },
+          proteinGrams: { type: 'number' },
+          carbGrams: { type: 'number' },
+          fatGrams: { type: 'number' },
         },
       },
     },
@@ -134,16 +156,11 @@ const responseSchema = {
 } as const;
 
 /**
- * The prompt is written for a form that is filled in automatically, so it asks
- * for one entry rather than a list of candidates.
- *
- * Listing the components is not decoration: working through the plate item by
- * item and then adding up is markedly more accurate than naming a total
- * outright, and it gives the totals something to be checked against. They carry
- * only a name and a calorie figure, which keeps the reply — and so the latency —
- * short.
+ * The prompt asks for one whole-meal total plus a per-food breakdown. The
+ * totals stay self-consistent because the model has to add the items up, and
+ * the log page can save each item as its own diary row.
  */
-const SYSTEM_PROMPT = `You read food images for a calorie tracker. Reply with one JSON object that fills a single entry in a food diary.
+const SYSTEM_PROMPT = `You read food images for a calorie tracker. Reply with one JSON object that fills a food diary.
 
 TWO KINDS OF IMAGE
 
@@ -155,12 +172,12 @@ Nutrition label on packaging:
 
 Plate, bowl or glass of food:
 - foodName names the meal as a whole, e.g. "Fried egg on toast with ham and salad".
-- Set quantity to 1 and unit to what holds it: "plate", "bowl", "glass".
-- List every distinct food you can see in components, each with its own portion and calories, judging portions against the plate, cutlery or hand for scale.
-- calories, proteinGrams, carbGrams and fatGrams are the totals for the whole plate, and calories must equal the sum of the component calories.
+- Set the top-level quantity to 1 and unit to what holds it: "plate", "bowl", "glass".
+- List every distinct food you can see in components. Each component needs its own name (food only, no portion in the name), quantity, unit, calories, proteinGrams, carbGrams and fatGrams. Judge portions against the plate, cutlery or hand for scale.
+- Top-level calories, proteinGrams, carbGrams and fatGrams are the totals for the whole plate. They must equal the sums of the matching component fields.
 
 ALWAYS
-- Macros are in grams and describe the entry as a whole.
+- Macros are in grams.
 - Keep the numbers self-consistent: protein 4 kcal/g, carbohydrate 4 kcal/g, fat 9 kcal/g.
 - micronutrients: only what a label prints or what is clearly present in a recognised food. At most 6. Never pad with zeros.
 - confidence: "high" only for a legible label, "medium" for a clear plate of recognisable food, "low" when the image is blurred or cropped, the food is unidentifiable, or the portion is a guess.
@@ -175,7 +192,7 @@ const MAX_CALORIES = 20_000;
  * Enough for a long dish name and a dozen components, and short enough to bound
  * how slow a single extraction can get.
  */
-const MAX_RESPONSE_TOKENS = 900;
+const MAX_RESPONSE_TOKENS = 1400;
 
 export async function extractNutritionFromImage(
   imageBuffer: Buffer,
@@ -270,7 +287,7 @@ const DRIFT_TOLERANCE = 0.25;
  */
 function collectWarnings(
   entry: ExtractedEntry,
-  components: { name: string; calories: number }[],
+  components: ExtractedComponent[],
 ): string[] {
   const warnings: string[] = [];
 
@@ -298,8 +315,8 @@ function collectWarnings(
 
 const drifts = (a: number, b: number) => Math.abs(a - b) / Math.max(a, b) > DRIFT_TOLERANCE;
 
-/** Display-only, so a bad name or figure is dropped rather than failing the request. */
-function sanitiseComponents(input: { name: string; calories: number }[] | undefined) {
+/** A bad name or figure is dropped rather than failing the whole request. */
+function sanitiseComponents(input: RawComponent[] | undefined): ExtractedComponent[] {
   if (!Array.isArray(input)) {
     return [];
   }
@@ -309,7 +326,14 @@ function sanitiseComponents(input: { name: string; calories: number }[] | undefi
     .slice(0, 20)
     .map((item) => ({
       name: item.name.trim().slice(0, 80),
+      quantity: clamp(item.quantity, 0.01, 10_000, 1),
+      unit: (typeof item.unit === 'string' && item.unit.trim() ? item.unit : 'serving')
+        .trim()
+        .slice(0, 24),
       calories: round(clamp(item.calories, 0, MAX_CALORIES)),
+      proteinGrams: round(clamp(item.proteinGrams, 0, 5_000)),
+      carbGrams: round(clamp(item.carbGrams, 0, 5_000)),
+      fatGrams: round(clamp(item.fatGrams, 0, 5_000)),
     }));
 }
 

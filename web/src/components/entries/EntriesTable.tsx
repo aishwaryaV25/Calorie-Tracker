@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge, Button } from '@/components/ui';
-import { formatCalories, formatDateKey, formatGrams, formatTime } from '@/lib/format';
+import { formatCalories, formatClock, formatDateKey, formatGrams } from '@/lib/format';
 import { MEAL_LABELS, type FoodEntry } from '@/lib/types';
 
 interface EntriesTableProps {
@@ -11,12 +11,16 @@ interface EntriesTableProps {
   onDelete: (entry: FoodEntry) => void;
 }
 
-const macroSummary = (entry: FoodEntry) =>
-  `${formatGrams(entry.macros.proteinGrams)}p / ${formatGrams(entry.macros.carbGrams)}c / ${formatGrams(entry.macros.fatGrams)}f`;
+const SOURCE_LABEL: Record<FoodEntry['source'], string> = {
+  manual: 'manual',
+  image: 'AI',
+  pdf: 'PDF',
+  chat: 'chat',
+};
 
 /**
- * Stacked cards on small screens and a full table on large ones. An entry has
- * nine values worth showing, which a phone-width table cannot fit legibly.
+ * Stacked cards on small screens and a full table on large ones. Micros stay
+ * visible because the assignment includes them, even though the mock hid them.
  */
 export function EntriesTable({ entries, deletingId, onEdit, onDelete }: EntriesTableProps) {
   return (
@@ -29,13 +33,16 @@ export function EntriesTable({ entries, deletingId, onEdit, onDelete }: EntriesT
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate text-sm font-medium">{entry.foodName}</p>
                   <Badge>{MEAL_LABELS[entry.mealType]}</Badge>
-                  {entry.source !== 'manual' && <Badge tone="accent">{entry.source}</Badge>}
+                  <Badge tone="accent">{SOURCE_LABEL[entry.source]}</Badge>
                 </div>
                 <p className="mt-0.5 text-xs text-muted">
-                  {formatDateKey(entry.consumedOn)} at {formatTime(entry.consumedAt)} ·{' '}
-                  {entry.quantity} {entry.unit}
+                  {formatDateKey(entry.consumedOn)} at {formatClock(entry.consumedAt)} · {entry.quantity}{' '}
+                  {entry.unit}
                 </p>
-                <p className="text-xs text-subtle">{macroSummary(entry)}</p>
+                <p className="text-xs text-subtle">
+                  {formatGrams(entry.macros.proteinGrams)}p / {formatGrams(entry.macros.carbGrams)}c /{' '}
+                  {formatGrams(entry.macros.fatGrams)}f
+                </p>
               </div>
               <span className="shrink-0 text-sm font-medium tabular-nums">
                 {formatCalories(entry.calories)}
@@ -64,58 +71,50 @@ export function EntriesTable({ entries, deletingId, onEdit, onDelete }: EntriesT
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-subtle">
-              <th className="pb-2 font-medium">When</th>
-              <th className="pb-2 font-medium">Food</th>
-              <th className="pb-2 font-medium">Meal</th>
-              <th className="pb-2 text-right font-medium">Quantity</th>
-              <th className="pb-2 text-right font-medium">Calories</th>
-              <th className="pb-2 text-right font-medium">Protein</th>
-              <th className="pb-2 text-right font-medium">Carbs</th>
-              <th className="pb-2 text-right font-medium">Fat</th>
-              <th className="pb-2 text-right font-medium">Micros</th>
-              <th className="pb-2" />
+              <th className="pb-3 font-medium">When</th>
+              <th className="pb-3 font-medium">Food</th>
+              <th className="pb-3 font-medium">Meal</th>
+              <th className="pb-3 text-right font-medium">Quantity</th>
+              <th className="pb-3 text-right font-medium">Calories</th>
+              <th className="pb-3 text-right font-medium">Protein</th>
+              <th className="pb-3 text-right font-medium">Carbs</th>
+              <th className="pb-3 text-right font-medium">Fat</th>
+              <th className="pb-3 text-right font-medium">Micros</th>
+              <th className="pb-3 font-medium">Source</th>
+              <th className="pb-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {entries.map((entry) => (
-              <tr key={entry.id}>
-                <td className="py-2.5 whitespace-nowrap text-muted">
-                  {formatDateKey(entry.consumedOn)}, {formatTime(entry.consumedAt)}
-                </td>
-                <td className="max-w-xs py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate">{entry.foodName}</span>
-                    {entry.source !== 'manual' && <Badge tone="accent">{entry.source}</Badge>}
+              <tr key={entry.id} className="align-middle">
+                <td className="py-3 whitespace-nowrap text-muted">{formatClock(entry.consumedAt)}</td>
+                <td className="max-w-xs py-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{entry.foodName}</p>
+                    <p className="text-xs text-subtle">{formatDateKey(entry.consumedOn, 'd MMM yyyy')}</p>
                   </div>
                 </td>
-                <td className="py-2.5">{MEAL_LABELS[entry.mealType]}</td>
-                <td className="py-2.5 text-right whitespace-nowrap tabular-nums">
+                <td className="py-3">{MEAL_LABELS[entry.mealType]}</td>
+                <td className="py-3 text-right whitespace-nowrap tabular-nums">
                   {entry.quantity} {entry.unit}
                 </td>
-                <td className="py-2.5 text-right font-medium tabular-nums">
+                <td className="py-3 text-right font-medium tabular-nums">
                   {formatCalories(entry.calories)}
                 </td>
-                <td className="py-2.5 text-right tabular-nums">
-                  {formatGrams(entry.macros.proteinGrams)}g
-                </td>
-                <td className="py-2.5 text-right tabular-nums">
-                  {formatGrams(entry.macros.carbGrams)}g
-                </td>
-                <td className="py-2.5 text-right tabular-nums">
-                  {formatGrams(entry.macros.fatGrams)}g
-                </td>
+                <td className="py-3 text-right tabular-nums">{formatGrams(entry.macros.proteinGrams)}g</td>
+                <td className="py-3 text-right tabular-nums">{formatGrams(entry.macros.carbGrams)}g</td>
+                <td className="py-3 text-right tabular-nums">{formatGrams(entry.macros.fatGrams)}g</td>
                 <td
-                  className="py-2.5 text-right tabular-nums text-muted"
-                  title={entry.micronutrients.map((micro) => micro.label).join(', ')}
+                  className="py-3 text-right tabular-nums text-muted"
+                  title={entry.micronutrients.map((micro) => `${micro.label}: ${micro.amount}${micro.unit}`).join(', ')}
                 >
                   {entry.micronutrients.length || '—'}
                 </td>
-                <td className="py-2.5 text-right whitespace-nowrap">
-                  <Button
-                    variant="ghost"
-                    className="px-2 py-1 text-xs"
-                    onClick={() => onEdit(entry)}
-                  >
+                <td className="py-3">
+                  <Badge tone="accent">{SOURCE_LABEL[entry.source]}</Badge>
+                </td>
+                <td className="py-3 text-right whitespace-nowrap">
+                  <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => onEdit(entry)}>
                     Edit
                   </Button>
                   <Button

@@ -1,15 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { cx } from '@/components/ui';
 import type { ChatAction, ChatTurn } from '@/lib/types';
 
-/**
- * A turn as the page holds it: the message, plus for an assistant turn whatever it
- * changed in the diary. The actions are kept beside the reply rather than woven
- * into its text so the record of what happened comes from the server, not from
- * the model's account of itself.
- */
 export interface ThreadTurn extends ChatTurn {
   id: string;
   actions?: ChatAction[];
@@ -23,52 +18,62 @@ interface ChatThreadProps {
 export function ChatThread({ turns, isThinking }: ChatThreadProps) {
   const endRef = useRef<HTMLDivElement>(null);
 
-  // Follows the conversation down as it grows, the way a messaging app does.
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [turns, isThinking]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       {turns.map((turn) => (
         <div
           key={turn.id}
-          className={cx('flex flex-col gap-1.5', turn.role === 'user' ? 'items-end' : 'items-start')}
+          className={cx('flex gap-3', turn.role === 'user' ? 'justify-end' : 'justify-start')}
         >
+          {turn.role === 'assistant' && (
+            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft">
+              <BrandMark size={18} withName={false} />
+            </span>
+          )}
+
           <div
             className={cx(
-              'max-w-[46rem] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap',
-              turn.role === 'user'
-                ? 'bg-foreground text-surface'
-                : 'border border-border bg-surface text-foreground',
+              'flex max-w-[46rem] flex-col gap-2',
+              turn.role === 'user' ? 'items-end' : 'items-start',
             )}
           >
-            {turn.content}
-          </div>
+            <div
+              className={cx(
+                'rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap',
+                turn.role === 'user'
+                  ? 'bg-accent-soft text-foreground'
+                  : 'border border-border bg-surface text-foreground',
+              )}
+            >
+              {turn.content}
+            </div>
 
-          {turn.actions && turn.actions.length > 0 && (
-            <ul className="flex max-w-[46rem] flex-col gap-1">
-              {turn.actions.map((action, index) => (
-                <li
-                  key={`${turn.id}-${index}`}
-                  className="flex items-start gap-2 rounded-lg border border-danger/25 bg-accent-soft px-3 py-1.5 text-xs text-accent"
-                >
-                  <span aria-hidden className="mt-1 size-1.5 shrink-0 rounded-full bg-accent" />
-                  {action.label}
-                </li>
-              ))}
-            </ul>
-          )}
+            {turn.actions && turn.actions.length > 0 && (
+              <ul className="flex w-full flex-col gap-1.5">
+                {turn.actions.map((action, index) => (
+                  <li
+                    key={`${turn.id}-${index}`}
+                    className="rounded-xl border border-accent/20 bg-accent-soft px-3 py-2 text-xs text-accent"
+                  >
+                    {action.label}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       ))}
 
       {isThinking && (
-        <div className="flex items-center gap-2 text-xs text-subtle" role="status">
-          <span
-            aria-hidden
-            className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
-          />
-          Thinking…
+        <div className="flex items-center gap-3" role="status">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft">
+            <BrandMark size={18} withName={false} />
+          </span>
+          <p className="text-xs text-subtle">Thinking…</p>
         </div>
       )}
 

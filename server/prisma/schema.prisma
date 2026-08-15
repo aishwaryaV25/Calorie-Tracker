@@ -61,6 +61,9 @@ model FoodEntry {
   /// reports and for debugging AI-generated entries.
   source       String   @default("manual")
 
+  /// Optional free text from the log-meal form. Not used in reports.
+  notes        String?
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

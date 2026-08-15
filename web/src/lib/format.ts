@@ -10,6 +10,8 @@ export const formatDateKey = (dateKey: string, pattern = 'd MMM') =>
 
 export const formatTime = (isoTimestamp: string) => format(parseISO(isoTimestamp), 'HH:mm');
 
+export const formatClock = (isoTimestamp: string) => format(parseISO(isoTimestamp), 'h:mm a');
+
 export const formatDateTime = (isoTimestamp: string) =>
   format(parseISO(isoTimestamp), 'd MMM, HH:mm');
 

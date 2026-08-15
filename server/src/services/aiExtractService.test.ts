@@ -21,7 +21,15 @@ const base = {
   carbGrams: 50,
   fatGrams: 6,
   micronutrients: [] as { nutrient: string; amount: number }[],
-  components: [] as { name: string; calories: number }[],
+  components: [] as {
+    name: string;
+    calories: number;
+    quantity?: number;
+    unit?: string;
+    proteinGrams?: number;
+    carbGrams?: number;
+    fatGrams?: number;
+  }[],
 };
 
 const extraction = (overrides: Partial<typeof base> = {}) => ({ ...base, ...overrides });
@@ -116,7 +124,49 @@ describe('sanitiseExtraction', () => {
       }),
     );
 
-    assert.deepEqual(result.components, [{ name: 'Fried egg', calories: 90 }]);
+    assert.deepEqual(result.components, [
+      {
+        name: 'Fried egg',
+        quantity: 1,
+        unit: 'serving',
+        calories: 90,
+        proteinGrams: 0,
+        carbGrams: 0,
+        fatGrams: 0,
+      },
+    ]);
+  });
+
+  it('keeps portion and macros on a component when the model sends them', () => {
+    const result = sanitiseExtraction(
+      extraction({
+        calories: 420,
+        proteinGrams: 40,
+        carbGrams: 0,
+        fatGrams: 28,
+        components: [
+          {
+            name: 'Grilled salmon',
+            quantity: 1,
+            unit: 'serving',
+            calories: 420,
+            proteinGrams: 40,
+            carbGrams: 0,
+            fatGrams: 28,
+          },
+        ],
+      }),
+    );
+
+    assert.deepEqual(result.components[0], {
+      name: 'Grilled salmon',
+      quantity: 1,
+      unit: 'serving',
+      calories: 420,
+      proteinGrams: 40,
+      carbGrams: 0,
+      fatGrams: 28,
+    });
   });
 
   it('falls back to low confidence when the model returns something unexpected', () => {

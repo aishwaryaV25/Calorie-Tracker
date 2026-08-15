@@ -85,6 +85,16 @@ curl -s -X POST "$BASE/entries" -H "Authorization: Bearer $A_TOKEN" -H 'Content-
 curl -s "$BASE/entries?from=2026-08-20&to=2026-08-01" -H "Authorization: Bearer $A_TOKEN" \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log("  reversed range:",JSON.parse(s).error.details[0].message))'
 
+echo "== batch create =="
+BATCH=$(curl -s -X POST "$BASE/entries/batch" -H "Authorization: Bearer $A_TOKEN" -H 'Content-Type: application/json' -d '{
+  "source":"manual",
+  "entries":[
+    {"foodName":"Salmon","mealType":"dinner","quantity":1,"unit":"serving","calories":420,"proteinGrams":40,"carbGrams":0,"fatGrams":28,"consumedOn":"2026-08-12","notes":"Plate from dinner"},
+    {"foodName":"Brown rice","mealType":"dinner","quantity":1,"unit":"cup","calories":216,"proteinGrams":5,"carbGrams":45,"fatGrams":2,"consumedOn":"2026-08-12","notes":"Plate from dinner"}
+  ]
+}')
+echo "$BATCH" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s);console.log("  saved",o.data.length,"rows, notes:",o.data[0].notes)})'
+
 echo "== update and delete =="
 curl -s -X PATCH "$BASE/entries/$ENTRY_ID" -H "Authorization: Bearer $A_TOKEN" -H 'Content-Type: application/json' \
   -d '{"calories":150,"micronutrients":[{"nutrient":"iron","amount":2.5}]}' \

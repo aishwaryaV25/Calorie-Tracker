@@ -1,6 +1,12 @@
 'use client';
 
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
+import type {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react';
 
 /** Joins class names, dropping falsy values. */
 export const cx = (...classes: (string | false | null | undefined)[]) =>
@@ -55,14 +61,21 @@ interface FieldProps {
   htmlFor: string;
   error?: string;
   hint?: string;
+  required?: boolean;
   children: ReactNode;
 }
 
-export function Field({ label, htmlFor, error, hint, children }: FieldProps) {
+export function Field({ label, htmlFor, error, hint, required, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
         {label}
+        {required && (
+          <span className="text-accent" aria-hidden>
+            {' '}
+            *
+          </span>
+        )}
       </label>
       {children}
       {hint && !error && <p className="text-xs text-subtle">{hint}</p>}
@@ -89,6 +102,20 @@ export function Input({
       {...props}
       aria-invalid={hasError || undefined}
       className={cx(CONTROL_STYLES, hasError && 'border-danger', className)}
+    />
+  );
+}
+
+export function Textarea({
+  className,
+  hasError,
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & { hasError?: boolean }) {
+  return (
+    <textarea
+      {...props}
+      aria-invalid={hasError || undefined}
+      className={cx(CONTROL_STYLES, 'min-h-20 resize-y', hasError && 'border-danger', className)}
     />
   );
 }

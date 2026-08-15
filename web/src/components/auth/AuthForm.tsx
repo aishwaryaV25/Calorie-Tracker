@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { Alert, Button, Field, Input } from '@/components/ui';
 
 interface AuthFormProps {
@@ -63,9 +64,9 @@ export function AuthForm({ mode }: AuthFormProps) {
     <main className="flex min-h-dvh items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-3 grid size-9 place-items-center rounded-lg bg-accent text-base font-bold text-on-accent">
-            C
-          </span>
+          <Link href="/" className="mb-3">
+            <BrandMark size={56} withName={false} />
+          </Link>
           <h1 className="text-2xl font-semibold tracking-tight">Calorie Tracker</h1>
           <p className="mt-1.5 text-sm text-muted">
             {isSignup ? 'Create an account to start logging meals.' : 'Sign in to your account.'}

@@ -42,6 +42,30 @@ export interface Micronutrient {
   unit: string;
 }
 
+/**
+ * Nutrients the log form can add by hand. Mirrors the API's known list so a
+ * typed amount lands in the same unit the reports already use.
+ */
+export const MICRONUTRIENTS = {
+  vitamin_a: { label: 'Vitamin A', unit: 'mcg' },
+  vitamin_c: { label: 'Vitamin C', unit: 'mg' },
+  vitamin_d: { label: 'Vitamin D', unit: 'mcg' },
+  vitamin_e: { label: 'Vitamin E', unit: 'mg' },
+  vitamin_b12: { label: 'Vitamin B12', unit: 'mcg' },
+  calcium: { label: 'Calcium', unit: 'mg' },
+  iron: { label: 'Iron', unit: 'mg' },
+  magnesium: { label: 'Magnesium', unit: 'mg' },
+  potassium: { label: 'Potassium', unit: 'mg' },
+  sodium: { label: 'Sodium', unit: 'mg' },
+  zinc: { label: 'Zinc', unit: 'mg' },
+  fiber: { label: 'Fibre', unit: 'g' },
+  sugar: { label: 'Sugar', unit: 'g' },
+  cholesterol: { label: 'Cholesterol', unit: 'mg' },
+} as const;
+
+export type MicronutrientKey = keyof typeof MICRONUTRIENTS;
+export const MICRONUTRIENT_KEYS = Object.keys(MICRONUTRIENTS) as MicronutrientKey[];
+
 export interface FoodEntry {
   id: string;
   foodName: string;
@@ -54,6 +78,7 @@ export interface FoodEntry {
   consumedAt: string;
   consumedOn: string;
   source: 'manual' | 'image' | 'pdf' | 'chat';
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -127,6 +152,16 @@ export interface GoalComparison {
   hasGoal: boolean;
 }
 
+export interface ExtractedComponent {
+  name: string;
+  quantity: number;
+  unit: string;
+  calories: number;
+  proteinGrams: number;
+  carbGrams: number;
+  fatGrams: number;
+}
+
 export interface ExtractedEntry {
   foodName: string;
   quantity: number;
@@ -143,8 +178,8 @@ export interface ExtractionResult {
   suggestedMealType: MealType | null;
   /** The single entry the form is filled with. */
   entry: ExtractedEntry;
-  /** The foods behind the totals, shown so the estimate can be judged. */
-  components: { name: string; calories: number }[];
+  /** Foods on the plate, each ready to become its own diary row. */
+  components: ExtractedComponent[];
   confidence: 'high' | 'medium' | 'low';
   warnings: string[];
   notes: string | null;
@@ -162,6 +197,7 @@ export interface CreateEntryPayload {
   consumedAt?: string;
   /** The calendar day the entry counts towards, as the user's clock sees it. */
   consumedOn?: string;
+  notes?: string;
   micronutrients?: { nutrient: string; amount: number; unit?: string }[];
 }
 

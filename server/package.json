@@ -15,7 +15,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "test": "node --import tsx --test src/**/*.test.ts"
+    "test": "npm run test:unit && npm run test:api",
+    "test:unit": "node --import tsx --test src/**/*.test.ts",
+    "test:api": "node scripts/run-api-tests.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

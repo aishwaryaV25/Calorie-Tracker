@@ -79,11 +79,51 @@ const coreEntryValidators = (optional: boolean): ValidationChain[] => {
       .withMessage('consumedOn must be a calendar date in YYYY-MM-DD form.')
       .isISO8601({ strict: true })
       .withMessage('consumedOn must be a real calendar date.'),
+    body('notes').optional({ values: 'falsy' }).trim().isLength({ max: 500 }).withMessage('Notes must be 500 characters or fewer.'),
     ...micronutrientValidators,
   ];
 };
 
 export const createEntryValidators = coreEntryValidators(false);
+
+const MAX_BATCH = 20;
+
+/**
+ * Several entries in one request, used when a photographed plate is saved as
+ * one row per food. Same field rules as a single create.
+ */
+export const createEntriesBatchValidators = [
+  body('entries')
+    .isArray({ min: 1, max: MAX_BATCH })
+    .withMessage(`Send between 1 and ${MAX_BATCH} entries.`),
+  body('entries.*.foodName')
+    .trim()
+    .notEmpty()
+    .withMessage('Food name is required.')
+    .isLength({ max: 160 }),
+  body('entries.*.mealType')
+    .isIn(MEAL_TYPES)
+    .withMessage(`Meal type must be one of: ${MEAL_TYPES.join(', ')}.`),
+  body('entries.*.quantity')
+    .isFloat({ gt: 0, max: 10_000 })
+    .withMessage('Quantity must be greater than zero.')
+    .toFloat(),
+  body('entries.*.unit').trim().notEmpty().isLength({ max: 24 }),
+  amountField('entries.*.calories', 'Calories', false),
+  amountField('entries.*.proteinGrams', 'Protein', true),
+  amountField('entries.*.carbGrams', 'Carbohydrates', true),
+  amountField('entries.*.fatGrams', 'Fat', true),
+  body('entries.*.consumedAt').optional().isISO8601().toDate(),
+  body('entries.*.consumedOn')
+    .optional()
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .isISO8601({ strict: true }),
+  body('entries.*.notes').optional({ values: 'falsy' }).trim().isLength({ max: 500 }),
+  body('entries.*.micronutrients').optional().isArray({ max: MAX_MICRONUTRIENTS }),
+  body('entries.*.micronutrients.*.nutrient').optional().trim().matches(/^[a-z0-9_]+$/),
+  body('entries.*.micronutrients.*.amount').optional().isFloat({ min: 0, max: 100_000 }).toFloat(),
+  body('source').optional().isIn(['manual', 'image']),
+];
 
 /**
  * Every field is optional for a patch. The "at least one field" rule lives in the

@@ -50,11 +50,11 @@ export function ChatComposer({ isBusy, onSend }: ChatComposerProps) {
         maxLength={MAX_LENGTH}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Tell me what you ate, or ask about your day…"
-        className="min-h-[3.25rem] w-full resize-y rounded-xl border border-border-strong bg-surface px-3.5 py-2.5 text-sm text-foreground placeholder:text-subtle focus:border-accent"
+        placeholder="Ask anything about your nutrition..."
+        className="min-h-[3.25rem] w-full resize-none rounded-xl border border-border-strong bg-surface px-3.5 py-2.5 text-sm text-foreground placeholder:text-subtle focus:border-accent"
       />
       <Button type="submit" isLoading={isBusy} disabled={draft.trim().length === 0} className="h-[3.25rem] px-5">
-        Send
+        Send ↑
       </Button>
     </form>
   );

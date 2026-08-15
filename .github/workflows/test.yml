@@ -1,0 +1,56 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  api:
+    name: Unit + API regression
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: cp .env.example .env
+      - run: npx prisma generate
+      - run: npm test
+
+  e2e:
+    name: UI regression
+    runs-on: ubuntu-latest
+    needs: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            web/package-lock.json
+      - name: Install API
+        working-directory: server
+        run: |
+          npm ci
+          cp .env.example .env
+          npx prisma generate
+          npx prisma migrate deploy
+      - name: Install web
+        working-directory: web
+        run: |
+          npm ci
+          echo 'NEXT_PUBLIC_API_URL=http://localhost:4000/api' > .env.local
+          npx playwright install --with-deps chromium
+      - name: Run Playwright
+        working-directory: web
+        env:
+          CI: true
+        run: npm run test:e2e

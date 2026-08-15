@@ -220,6 +220,11 @@ export const api = {
     get: (id: string) => request<FoodEntry>(`/entries/${id}`),
     create: (body: CreateEntryPayload) =>
       request<FoodEntry>('/entries', { method: 'POST', body }),
+    /**
+     * Several foods from one plate. All rows succeed or none do.
+     */
+    batch: (body: { entries: CreateEntryPayload[]; source?: 'manual' | 'image' }) =>
+      request<{ data: FoodEntry[] }>('/entries/batch', { method: 'POST', body }),
     update: (id: string, body: Partial<CreateEntryPayload>) =>
       request<FoodEntry>(`/entries/${id}`, { method: 'PATCH', body }),
     remove: (id: string) => request<void>(`/entries/${id}`, { method: 'DELETE' }),

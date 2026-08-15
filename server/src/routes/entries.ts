@@ -3,8 +3,14 @@ import { asyncHandler } from '../lib/async-handler.js';
 import { pathParam } from '../lib/request.js';
 import { authenticate, requireUser } from '../middleware/auth.js';
 import { handleValidation, validatedBody, validatedQuery } from '../middleware/validate.js';
-import type { CreateEntryInput, ListEntriesQuery, UpdateEntryInput } from '../types/dto.js';
+import type {
+  CreateEntriesBatchInput,
+  CreateEntryInput,
+  ListEntriesQuery,
+  UpdateEntryInput,
+} from '../types/dto.js';
 import {
+  createEntriesBatchValidators,
   createEntryValidators,
   entryIdValidators,
   listEntriesValidators,
@@ -40,6 +46,25 @@ entriesRouter.post(
       validatedBody<CreateEntryInput>(req),
     );
     res.status(201).json(entry);
+  }),
+);
+
+/**
+ * Several foods from one plate, saved together. Registered before `/:id` so
+ * "batch" is not read as an entry id.
+ */
+entriesRouter.post(
+  '/batch',
+  createEntriesBatchValidators,
+  handleValidation,
+  asyncHandler(async (req, res) => {
+    const body = validatedBody<CreateEntriesBatchInput>(req);
+    const entries = await entriesService.createEntries(
+      requireUser(req).userId,
+      body.entries,
+      body.source ?? 'manual',
+    );
+    res.status(201).json({ data: entries });
   }),
 );
 
