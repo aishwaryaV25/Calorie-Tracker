@@ -5,6 +5,7 @@ import { prisma } from './lib/prisma.js';
 const app = createApp();
 const server = app.listen(config.port, () => {
   console.log(`API listening on http://localhost:${config.port} (${config.nodeEnv})`);
+  console.log(`Database ${config.databaseLabel}`);
 });
 
 /** Finish in-flight requests and release the database pool before exiting. */

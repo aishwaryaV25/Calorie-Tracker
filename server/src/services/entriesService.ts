@@ -110,7 +110,7 @@ function buildEntryFilter(userId: string, query: ListEntriesQuery): Prisma.FoodE
   }
 
   if (query.search) {
-    where.foodName = { contains: query.search };
+    where.foodName = { contains: query.search, mode: 'insensitive' };
   }
 
   return where;

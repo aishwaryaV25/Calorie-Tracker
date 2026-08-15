@@ -87,7 +87,11 @@ async function logMeal(
   await page.locator('#proteinGrams').fill(fields.protein);
   await page.locator('#carbGrams').fill(fields.carbs);
   await page.locator('#fatGrams').fill(fields.fat);
+  await expect(page.getByRole('button', { name: 'Add meal' })).toBeEnabled();
   await page.getByRole('button', { name: 'Add meal' }).click();
+  // The success banner stays on the page after the first save, so the cleared
+  // food name is what proves this meal reached the database.
+  await expect(page.locator('#foodName')).toHaveValue('');
   await expect(page.getByText('Saved. Keep going or review the day.')).toBeVisible();
 }
 
@@ -119,6 +123,17 @@ test.describe('Assignment end-to-end', () => {
     expect(new URL(API).origin).not.toBe(new URL(web.url()).origin);
   });
 
+  test('landing page: signed-out marketing home', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: /Eat smart/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Log in' }).first()).toBeVisible();
+    await page.getByRole('link', { name: 'Features' }).click();
+    await expect(page.getByText('Smart meal logging')).toBeVisible();
+    await expect(page.getByText('AI food recognition')).toBeVisible();
+    await expect(page.getByText('Reports & insights')).toBeVisible();
+  });
+
   test('multi-user: sign up through the web app', async ({ page }) => {
     await page.goto('/signup');
     await page.locator('#displayName').fill('E2E User');
@@ -128,6 +143,21 @@ test.describe('Assignment end-to-end', () => {
     await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
     await expect(page.locator('aside').getByText('E2E User')).toBeVisible();
     authToken = await tokenFromPage(page);
+  });
+
+  test('login: sign out and recapture the session from the database', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+    await page.locator('aside').getByRole('button', { name: 'Sign out' }).click();
+    await expect(page.getByRole('heading', { name: 'Calorie Tracker' })).toBeVisible();
+    await expect(page.getByText('Sign in to your account.')).toBeVisible();
+
+    await page.goto('/login');
+    await page.locator('#email').fill(email);
+    await page.locator('#password').fill(PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+    await expect(page.locator('aside').getByText('E2E User')).toBeVisible();
   });
 
   test('goal setting: create, update, list, delete', async ({ page }) => {
@@ -148,6 +178,10 @@ test.describe('Assignment end-to-end', () => {
     await expect(page.getByText('2 versions')).toBeVisible();
     await expect(page.locator('table').getByText('2,600')).toBeVisible();
     await expect(page.locator('table').getByText('62kg').first()).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByText('2 versions')).toBeVisible();
+    await expect(page.locator('table').getByText('2,600')).toBeVisible();
 
     const history = page.locator('table').filter({ hasText: 'Effective from' });
     await history.getByRole('button', { name: 'Delete' }).last().click();
@@ -208,6 +242,173 @@ test.describe('Assignment end-to-end', () => {
     });
   });
 
+  test('dashboard: recapture meals and goals from the database', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+    await expect(page.getByText('E2E oatmeal').first()).toBeVisible();
+    await expect(page.getByText('E2E chicken salad').first()).toBeVisible();
+    await page.getByText('E2E salmon').first().scrollIntoViewIfNeeded();
+    await expect(page.getByText('E2E salmon').first()).toBeVisible();
+    await page.getByText('E2E yogurt').first().scrollIntoViewIfNeeded();
+    await expect(page.getByText('E2E yogurt').first()).toBeVisible();
+    await expect(page.getByText(/of .* kcal/)).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByText('E2E oatmeal').first()).toBeVisible();
+    await expect(page.getByText(/of .* kcal/)).toBeVisible();
+
+    const nav = page.locator('aside').getByLabel('Main');
+    await nav.getByRole('link', { name: 'Log Meal' }).click();
+    await expect(page.getByRole('heading', { name: 'Log a Meal' })).toBeVisible();
+    await nav.getByRole('link', { name: 'Goals' }).click();
+    await expect(page.getByRole('heading', { name: 'Set Your Goals' })).toBeVisible();
+    await nav.getByRole('link', { name: 'Entries' }).click();
+    await expect(page.getByRole('heading', { name: 'Entries' })).toBeVisible();
+    await nav.getByRole('link', { name: 'Reports' }).click();
+    await expect(page.getByRole('heading', { name: 'Reports' })).toBeVisible();
+    await nav.getByRole('link', { name: 'Chat Support' }).click();
+    await expect(page.getByRole('heading', { name: /Chat/ })).toBeVisible();
+    await nav.getByRole('link', { name: 'Bulk import' }).click();
+    await expect(page.getByRole('heading', { name: 'Bulk import' })).toBeVisible();
+    await nav.getByRole('link', { name: 'Today' }).click();
+    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+  });
+
+  test('CRUD APIs: persist to the database and reappear in the UI', async ({ page, request }) => {
+    await page.goto('/dashboard');
+    const token = await tokenFromPage(page);
+    const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const today = todayKey();
+
+    const me = await request.get(`${API}/auth/me`, { headers });
+    expect(me.ok()).toBeTruthy();
+    expect((await me.json()).user.email).toBe(email);
+
+    const listed = await apiJson(`/entries?from=${today}&to=${today}&page=1&pageSize=10`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(listed.meta.page).toBe(1);
+    expect(listed.meta.totalItems).toBeGreaterThanOrEqual(4);
+    const oatmeal = listed.data.find((entry: { foodName: string }) => entry.foodName === 'E2E oatmeal');
+    expect(oatmeal).toBeTruthy();
+
+    const fetched = await apiJson(`/entries/${oatmeal.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(fetched.foodName).toBe('E2E oatmeal');
+    expect(fetched.macros.proteinGrams).toBe(14);
+    expect(fetched.micronutrients.some((item: { label: string }) => item.label === 'Vitamin A')).toBeTruthy();
+
+    const patched = await apiJson(`/entries/${oatmeal.id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ notes: 'Persisted via API then recaptured' }),
+    });
+    expect(patched.notes).toBe('Persisted via API then recaptured');
+
+    const reread = await apiJson(`/entries/${oatmeal.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(reread.notes).toBe('Persisted via API then recaptured');
+
+    const batch = await apiJson('/entries/batch', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        source: 'manual',
+        entries: [
+          {
+            foodName: 'E2E batch toast',
+            mealType: 'snack',
+            quantity: 1,
+            unit: 'slice',
+            calories: 90,
+            proteinGrams: 3,
+            carbGrams: 16,
+            fatGrams: 1,
+            consumedOn: today,
+          },
+        ],
+      }),
+    });
+    expect(batch.data).toHaveLength(1);
+    expect(batch.data[0].foodName).toBe('E2E batch toast');
+
+    const goals = await apiJson('/goals?page=1&pageSize=10', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(goals.meta.totalItems).toBeGreaterThanOrEqual(1);
+    expect(goals.data[0].dailyCalories).toBeTruthy();
+
+    const current = await apiJson(`/goals/current?date=${today}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(current.goal).toBeTruthy();
+    expect(current.goal.dailyCalories).toBeGreaterThan(0);
+
+    const reportFrom = daysAgoKey(6);
+    const daily = await apiJson(`/reports/daily?from=${reportFrom}&to=${today}&page=1&pageSize=7`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(daily.data.length).toBeGreaterThan(0);
+    expect(daily.meta.totalItems).toBeGreaterThan(0);
+
+    const weekly = await apiJson(`/reports/weekly?from=${reportFrom}&to=${today}&page=1&pageSize=5`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(weekly.data.length).toBeGreaterThan(0);
+
+    const macros = await apiJson(`/reports/macros?from=${reportFrom}&to=${today}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(macros.grams.proteinGrams).toBeGreaterThan(0);
+
+    const micros = await apiJson(`/reports/micronutrients?from=${reportFrom}&to=${today}&page=1&pageSize=8`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(micros.data.some((row: { label: string }) => row.label === 'Vitamin A')).toBeTruthy();
+
+    const comparison = await apiJson(`/reports/goal-comparison?from=${reportFrom}&to=${today}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(comparison.actual.calories).toBeGreaterThan(0);
+    expect(comparison.hasGoal).toBeTruthy();
+
+    const pdf = await request.get(`${API}/reports/pdf?from=${reportFrom}&to=${today}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(pdf.ok()).toBeTruthy();
+    expect(pdf.headers()['content-type']).toContain('pdf');
+    expect((await pdf.body()).length).toBeGreaterThan(100);
+
+    const importStatus = await request.get(`${API}/imports/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(importStatus.ok()).toBeTruthy();
+
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const extract = await request.post(`${API}/ai/extract`, {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        image: { name: 'plate.png', mimeType: 'image/png', buffer: png },
+      },
+    });
+    expect(extract.status()).not.toBe(404);
+    expect(extract.status()).not.toBe(401);
+
+    await page.goto('/entries');
+    await page.getByRole('button', { name: 'Today' }).click();
+    await page.locator('#search').fill('batch toast');
+    await expect(page.locator('table').getByText('E2E batch toast')).toBeVisible();
+
+    await page.goto('/dashboard');
+    await expect(page.getByText('E2E oatmeal').first()).toBeVisible();
+    await expect(page.getByText('E2E batch toast').first()).toBeVisible();
+  });
+
   test('time-range listing: filter, search, edit, delete, paginate', async ({ page }) => {
     await page.goto('/entries');
     await expect(page.getByRole('heading', { name: 'Entries' })).toBeVisible();
@@ -218,6 +419,12 @@ test.describe('Assignment end-to-end', () => {
     await expect(table.getByText('E2E chicken salad')).toBeVisible();
     await expect(table.getByText('E2E salmon')).toBeVisible();
     await expect(table.getByText('E2E yogurt')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Last 7 days' }).click();
+    await expect(table.getByText('E2E oatmeal')).toBeVisible();
+    await page.locator('#from').fill(todayKey());
+    await page.locator('#to').fill(todayKey());
+    await expect(table.getByText('E2E oatmeal')).toBeVisible();
 
     await page.locator('#mealType').selectOption('breakfast');
     await expect(table.getByText('E2E oatmeal')).toBeVisible();
@@ -282,6 +489,14 @@ test.describe('Assignment end-to-end', () => {
     await expect(page.getByText('Vitamin A')).toBeVisible();
     await expect(page.locator('.recharts-responsive-container').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Download PDF/i })).toBeVisible();
+
+    await page.getByRole('button', { name: '7 days' }).click();
+    await expect(page.getByRole('heading', { name: 'Daily calories' })).toBeVisible();
+    await expect(page.getByText('Vitamin A')).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Goal vs actual' })).toBeVisible();
+    await expect(page.getByText('Vitamin A')).toBeVisible();
   });
 
   test('bulk import via PDF: parse, review, commit', async ({ page }) => {

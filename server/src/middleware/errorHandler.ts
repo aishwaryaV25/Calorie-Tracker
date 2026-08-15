@@ -53,6 +53,16 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
       });
       return;
     }
+
+    if (err.code === 'P2024') {
+      res.status(503).json({
+        error: {
+          code: 'DATABASE_UNAVAILABLE',
+          message: 'The database is busy. Please try again in a moment.',
+        },
+      });
+      return;
+    }
   }
 
   console.error('Unhandled error:', err);

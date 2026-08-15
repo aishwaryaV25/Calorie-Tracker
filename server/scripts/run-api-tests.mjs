@@ -1,17 +1,28 @@
 /**
- * Runs HTTP regression tests against an in-process API and a throwaway SQLite
- * file, so they never touch the developer's live diary.
+ * HTTP regression against Postgres. Uses DATABASE_URL / DIRECT_URL from the
+ * environment (Neon locally, the CI Postgres service in GitHub Actions).
  */
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { config as loadEnv } from 'dotenv';
 
-const root = path.dirname(fileURLToPath(new URL('.', import.meta.url)));
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+loadEnv({ path: path.join(root, '.env') });
+
+const databaseUrl = process.env.DATABASE_URL ?? '';
+if (!databaseUrl.startsWith('postgres')) {
+  console.error(
+    'API tests need a Postgres DATABASE_URL. Paste the Neon pooled URI into server/.env, then retry.',
+  );
+  process.exit(1);
+}
 
 const env = {
   ...process.env,
   NODE_ENV: 'test',
-  DATABASE_URL: 'file:./prisma/test.db',
+  DATABASE_URL: databaseUrl,
+  DIRECT_URL: process.env.DIRECT_URL || databaseUrl,
   JWT_SECRET: process.env.JWT_SECRET || 'test-jwt-secret-that-is-at-least-32-chars!!',
 };
 

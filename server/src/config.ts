@@ -61,6 +61,18 @@ if (jwtSecret && jwtSecret.length < 32) {
 }
 
 const databaseUrl = required('DATABASE_URL');
+const directUrl = optional('DIRECT_URL', '');
+
+if (databaseUrl && !/^postgres(ql)?:\/\//i.test(databaseUrl)) {
+  problems.push(
+    'DATABASE_URL must be a Postgres URI from Neon. A file: SQLite path is no longer valid.',
+  );
+}
+
+if (directUrl && !/^postgres(ql)?:\/\//i.test(directUrl)) {
+  problems.push('DIRECT_URL must be a Postgres URI from Neon.');
+}
+
 const corsOrigin = optional('CORS_ORIGIN', 'http://localhost:3000');
 
 /**
@@ -129,12 +141,23 @@ if (problems.length > 0) {
   throw new ConfigError(problems);
 }
 
+function describeDatabase(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const database = parsed.pathname.replace(/^\//, '') || '(unknown-db)';
+    return `${database} @ ${parsed.hostname}`;
+  } catch {
+    return '(unparseable DATABASE_URL)';
+  }
+}
+
 export const config = {
   nodeEnv,
   isProduction: nodeEnv === 'production',
   isTest: nodeEnv === 'test',
   port: port('PORT', 4000),
   databaseUrl,
+  databaseLabel: describeDatabase(databaseUrl),
   corsOrigins: corsOrigin
     .split(',')
     .map((origin) => origin.trim())
