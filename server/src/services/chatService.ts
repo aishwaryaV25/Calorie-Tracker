@@ -1,6 +1,6 @@
-import { config } from '../config.js';
 import { MEAL_TYPES } from '../domain/nutrition.js';
-import { createCompletion, type ChatMessage } from '../lib/ai-client.js';
+import type { ChatMessage } from '../lib/ai-client.js';
+import { createChatCompletion } from '../lib/gemini-client.js';
 import { toDateKey } from '../lib/dates.js';
 import { prisma } from '../lib/prisma.js';
 import type { ChatRequestInput } from '../types/dto.js';
@@ -221,9 +221,8 @@ async function runTurn(
   let callsMade = 0;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-    const completion = await createCompletion({
+    const completion = await createChatCompletion({
       messages,
-      model: config.ai.chatModel,
       tools: CHAT_TOOL_DEFINITIONS,
       temperature: TEMPERATURE,
       maxTokens: MAX_REPLY_TOKENS,
@@ -282,7 +281,7 @@ async function runTurn(
  * looping further.
  */
 async function forceAnswer(messages: ChatMessage[]): Promise<string> {
-  const completion = await createCompletion({
+  const completion = await createChatCompletion({
     messages: [
       ...messages,
       {
@@ -290,7 +289,6 @@ async function forceAnswer(messages: ChatMessage[]): Promise<string> {
         content: 'Answer the user now, in plain prose, using only what the tools have already returned.',
       },
     ],
-    model: config.ai.chatModel,
     temperature: TEMPERATURE,
     maxTokens: MAX_REPLY_TOKENS,
     rejectionMessage: REJECTION_MESSAGE,
@@ -326,7 +324,7 @@ const FALLBACK_REPLY = "I couldn't put together an answer for that. Try rephrasi
 const REJECTION_MESSAGE = "I couldn't act on that. Try rephrasing it, or say it in smaller steps.";
 
 async function answerAside(messages: ChatRequestInput['messages'], firstName: string, today: string): Promise<string> {
-  const completion = await createCompletion({
+  const completion = await createChatCompletion({
     messages: [
       {
         role: 'system',
@@ -334,7 +332,6 @@ async function answerAside(messages: ChatRequestInput['messages'], firstName: st
       },
       ...messages.map((turn) => ({ role: turn.role, content: turn.content })),
     ],
-    model: config.ai.chatModel,
     temperature: TEMPERATURE,
     maxTokens: MAX_REPLY_TOKENS,
     rejectionMessage: REJECTION_MESSAGE,

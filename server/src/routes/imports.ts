@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../lib/async-handler.js';
 import { badRequest } from '../lib/errors.js';
 import { authenticate, requireUser } from '../middleware/auth.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 import { PDF_SIZE_LIMIT_MB, uploadPdf } from '../middleware/upload.js';
 import { handleValidation, validatedBody } from '../middleware/validate.js';
 import {
@@ -26,6 +27,7 @@ importsRouter.get('/status', (_req, res) => {
  */
 importsRouter.post(
   '/parse',
+  rateLimit({ name: 'import', max: 8, windowMs: 60_000 }),
   uploadPdf,
   importParseValidators,
   handleValidation,

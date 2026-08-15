@@ -37,5 +37,8 @@ export const payloadTooLarge = (message: string) =>
 export const unprocessable = (message: string, details?: unknown) =>
   new AppError(422, 'UNPROCESSABLE_ENTITY', message, details);
 
+export const tooManyRequests = (message: string, retryAfterSeconds = 60) =>
+  new AppError(429, 'RATE_LIMITED', message, { retryAfterSeconds });
+
 export const serviceUnavailable = (message: string) =>
   new AppError(503, 'SERVICE_UNAVAILABLE', message);

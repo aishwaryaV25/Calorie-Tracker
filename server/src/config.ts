@@ -125,10 +125,9 @@ if (aiReasoningEffort && !['none', 'low', 'medium', 'high'].includes(aiReasoning
 }
 
 /**
- * Gemini is a second provider, used only for the PDF import's deep-analyse
- * fallback. It is kept apart from the Groq/OpenAI settings because the two
- * speak different APIs, and so a missing Gemini key does not take photo
- * extraction or chat down with it.
+ * Gemini is a second provider: chat, and the PDF import's deep-analyse
+ * fallback. Photos stay on Groq (`AI_*`) so a long conversation cannot spend
+ * the vision quota. The two keys are independent for the same reason.
  */
 const geminiApiKey = (process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? '').trim();
 const geminiModel = optional('GEMINI_MODEL', 'gemini-2.5-flash');

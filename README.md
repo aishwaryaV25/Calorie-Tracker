@@ -84,7 +84,7 @@ Playwright (`web/e2e`) is a local UI check only. It is not part of the productio
 | Multi-user signup / login / isolation | `/signup`, `/login` · `/api/auth` |
 | Bulk PDF import | `/import` · `/api/imports` |
 
-AI routes return a clear 503 when `AI_API_KEY` is unset. The rest of the app still works.
+Photo extract uses `AI_API_KEY` (Groq). Chat and PDF Deep Analyse use `GEMINI_API_KEY`. Either can be unset; that feature then returns 503 and the rest of the app still works.
 
 ## Assumptions
 

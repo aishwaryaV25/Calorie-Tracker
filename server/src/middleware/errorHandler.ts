@@ -20,6 +20,16 @@ export const notFoundHandler: RequestHandler = (req, res) => {
  */
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof AppError) {
+    if (err.statusCode === 429) {
+      const retryAfter =
+        err.details && typeof err.details === 'object' && 'retryAfterSeconds' in err.details
+          ? Number((err.details as { retryAfterSeconds?: number }).retryAfterSeconds)
+          : 60;
+      if (Number.isFinite(retryAfter) && retryAfter > 0) {
+        res.setHeader('Retry-After', String(Math.ceil(retryAfter)));
+      }
+    }
+
     res.status(err.statusCode).json({
       error: { code: err.code, message: err.message, details: err.details },
     });

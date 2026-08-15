@@ -262,7 +262,8 @@ export const api = {
   },
 
   ai: {
-    status: () => request<{ available: boolean }>('/ai/status'),
+    status: () =>
+      request<{ available: boolean; extractAvailable?: boolean; chatAvailable?: boolean }>('/ai/status'),
     extract: (file: File) => {
       const formData = new FormData();
       formData.append('image', file);

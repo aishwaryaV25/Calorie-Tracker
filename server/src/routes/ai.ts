@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { asyncHandler } from '../lib/async-handler.js';
 import { badRequest } from '../lib/errors.js';
 import { isAiConfigured } from '../lib/ai-client.js';
+import { isGeminiConfigured } from '../lib/gemini-client.js';
 import { authenticate, requireUser } from '../middleware/auth.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 import { IMAGE_SIZE_LIMIT_MB, parseChatUpload, uploadImage } from '../middleware/upload.js';
 import { handleValidation, validatedBody } from '../middleware/validate.js';
 import type { ChatRequestInput } from '../types/dto.js';
@@ -13,10 +15,15 @@ import * as chatService from '../services/chatService.js';
 export const aiRouter = Router();
 
 aiRouter.use(authenticate);
+aiRouter.use(rateLimit({ name: 'ai', max: 20, windowMs: 60_000 }));
 
-/** Lets the client hide or disable AI features when the server has no key. */
+/** Lets the client hide or disable AI features when the matching key is missing. */
 aiRouter.get('/status', (_req, res) => {
-  res.json({ available: isAiConfigured() });
+  res.json({
+    available: isAiConfigured(),
+    extractAvailable: isAiConfigured(),
+    chatAvailable: isGeminiConfigured(),
+  });
 });
 
 /**

@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { asyncHandler } from '../lib/async-handler.js';
 import { authenticate, requireUser } from '../middleware/auth.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 import { handleValidation, validatedBody } from '../middleware/validate.js';
 import type { LoginInput, SignupInput } from '../types/dto.js';
 import { loginValidators, signupValidators } from '../validators/auth.validator.js';
 import * as authService from '../services/authService.js';
 
 export const authRouter = Router();
+
+authRouter.use(rateLimit({ name: 'auth', max: 20, windowMs: 60_000 }));
 
 authRouter.post(
   '/signup',

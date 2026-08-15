@@ -89,13 +89,13 @@ export default function ChatPage() {
     return <Skeleton className="h-96 w-full" />;
   }
 
-  if (!aiStatus.data?.available) {
+  if (!(aiStatus.data?.chatAvailable ?? aiStatus.data?.available)) {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Chat support</h1>
         <EmptyState
           title="Chat is switched off"
-          description="This server has no AI key configured, so the assistant cannot run. Everything it does can still be done from the other pages."
+          description="This server has no Gemini key configured, so the assistant cannot run. Everything it does can still be done from the other pages."
           action={
             <Link href="/log">
               <Button variant="secondary">Log a meal instead</Button>

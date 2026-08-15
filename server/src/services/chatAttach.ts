@@ -1,6 +1,6 @@
-import { config } from '../config.js';
 import { MEAL_TYPES, type MealType } from '../domain/nutrition.js';
-import { createCompletion, parseJsonContent } from '../lib/ai-client.js';
+import { parseJsonContent } from '../lib/ai-client.js';
+import { createChatCompletion } from '../lib/gemini-client.js';
 import { badRequest } from '../lib/errors.js';
 import * as aiExtractService from './aiExtractService.js';
 import type { ExtractionResult } from './aiExtractService.js';
@@ -445,12 +445,11 @@ export async function interpretAttachMessage(
   today: string,
   userId: string,
 ): Promise<PendingOutcome & { unhandled?: boolean }> {
-  const completion = await createCompletion({
+  const completion = await createChatCompletion({
     messages: [
       { role: 'system', content: interpretPrompt(pending) },
       { role: 'user', content: text },
     ],
-    model: config.ai.chatModel,
     jsonSchema: { name: 'attach_intent', schema: INTERPRET_SCHEMA },
     temperature: 0.1,
     maxTokens: 500,
