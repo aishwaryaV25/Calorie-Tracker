@@ -130,17 +130,22 @@ if (aiReasoningEffort && !['none', 'low', 'medium', 'high'].includes(aiReasoning
  * the vision quota. The two keys are independent for the same reason.
  */
 const geminiApiKey = (process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? '').trim();
-const geminiModel = optional('GEMINI_MODEL', 'gemini-2.5-flash');
+const geminiModel = optional('GEMINI_MODEL', 'gemini-3.5-flash');
 const geminiBaseUrl = optional(
   'GEMINI_BASE_URL',
   'https://generativelanguage.googleapis.com/v1beta',
 ).replace(/\/+$/, '');
 
 /**
- * Prefer the configured model, then the two Flash IDs that stay up when a
- * preview (3.x) is slammed. Deduped so a default of 2.5-flash is not tried twice.
+ * 2.5-flash is retired for new API keys. Prefer current GA Flash IDs, then
+ * Lite / 3.6 if the first is busy or gone. Deduped against GEMINI_MODEL.
  */
-const geminiFallbacks = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+const geminiFallbacks = [
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-3.1-flash-lite',
+];
 const geminiModels = [geminiModel, ...geminiFallbacks].filter(
   (model, index, all) => model.length > 0 && all.indexOf(model) === index,
 );

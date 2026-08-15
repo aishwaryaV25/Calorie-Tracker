@@ -37,8 +37,14 @@ export interface GeminiRequest {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function isCapacityError(status: number, body: string): boolean {
-  return status === 503 || status === 429 || /high demand|UNAVAILABLE|overloaded/i.test(body);
+/** Busy, retired, or unknown-to-this-key — try the next Flash id. */
+export function shouldTryNextGeminiModel(status: number, body: string): boolean {
+  return (
+    status === 503 ||
+    status === 429 ||
+    status === 404 ||
+    /high demand|UNAVAILABLE|overloaded|no longer available|NOT_FOUND/i.test(body)
+  );
 }
 
 export async function generateGeminiJson(request: GeminiRequest): Promise<string> {
@@ -203,7 +209,7 @@ async function tryModels(
       return last;
     }
 
-    if (!isCapacityError(last.response.status, last.errorText)) {
+    if (!shouldTryNextGeminiModel(last.response.status, last.errorText)) {
       return last;
     }
 
