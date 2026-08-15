@@ -3,9 +3,15 @@ import { config } from './config.js';
 import { prisma } from './lib/prisma.js';
 
 const app = createApp();
-const server = app.listen(config.port, () => {
-  console.log(`API listening on http://localhost:${config.port} (${config.nodeEnv})`);
+const server = app.listen(config.port, '0.0.0.0', () => {
+  console.log(`API listening on port ${config.port} (${config.nodeEnv})`);
   console.log(`Database ${config.databaseLabel}`);
+  if (
+    config.isProduction &&
+    config.corsOrigins.every((origin) => origin === 'http://localhost:3000')
+  ) {
+    console.warn('CORS_ORIGIN is still localhost. Set it to the Vercel URL after the web app is live.');
+  }
 });
 
 /** Finish in-flight requests and release the database pool before exiting. */

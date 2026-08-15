@@ -1,0 +1,44 @@
+# Render Blueprint for the Express API.
+# Neon stays the database — do not add a Render Postgres.
+# Dashboard: New → Blueprint → this repo, or New → Web Service and match these values.
+
+services:
+  - type: web
+    name: calorie-tracker-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: '20'
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CORS_ORIGIN
+        sync: false
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_BASE_URL
+        sync: false
+      - key: AI_MODEL
+        sync: false
+      - key: AI_CHAT_MODEL
+        sync: false
+      - key: AI_JSON_MODE
+        sync: false
+      - key: AI_REASONING_EFFORT
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        sync: false

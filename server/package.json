@@ -10,6 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate && tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
+    "start:prod": "prisma migrate deploy && node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -48,6 +49,9 @@
     "prisma": "^6.19.3",
     "tsx": "^4.23.12",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,

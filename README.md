@@ -94,3 +94,46 @@ AI routes return a clear 503 when `AI_API_KEY` is unset. The rest of the app sti
 - Micronutrients are an open-ended list of named amounts, not fixed columns.
 - PDF import tries a local table parser first. Deep Analyse (Gemini) is optional.
 - The frontend never imports server code. `NEXT_PUBLIC_API_URL` is the only coupling.
+
+## Deploy (Vercel + Render)
+
+The web app goes on **Vercel**. The API goes on **Render** (free web service, no card). Postgres stays on **Neon** — do not create a Render database.
+
+Render’s free instance sleeps after 15 minutes idle and takes about a minute to wake. That is fine for a first deploy. GCP Cloud Run is nicer when you already have a billing account; it is not worth opening one just for this.
+
+### 1. API on Render
+
+1. Push this repo to GitHub.
+2. [Render](https://dashboard.render.com) → **New** → **Web Service** → this repo.
+3. Set **Root Directory** to `server`, instance type **Free**.
+4. Build `npm ci && npm run build`, start `npm run start:prod`.
+5. Health check path: `/api/health`.
+6. Add environment variables (same names as `server/.env.example`):
+
+| Name | Value |
+| --- | --- |
+| `NODE_ENV` | `production` |
+| `DATABASE_URL` | Neon **pooled** URI |
+| `DIRECT_URL` | Neon **direct** URI |
+| `JWT_SECRET` | `openssl rand -base64 48` |
+| `CORS_ORIGIN` | your Vercel origin, e.g. `https://your-app.vercel.app` |
+| `AI_*` / `GEMINI_*` | copy from local `.env` if you want chat and photo extract live |
+
+`PORT` is set by Render. Do not add it.
+
+The first deploy can use `CORS_ORIGIN=http://localhost:3000` so the service boots; switch it to the Vercel URL after step 2 and restart the service.
+
+### 2. Web on Vercel
+
+1. [Vercel](https://vercel.com) → **Add New** → **Project** → this repo.
+2. **Root Directory**: `web`.
+3. Framework: Next.js (detected).
+4. Environment variable:
+
+| Name | Value |
+| --- | --- |
+| `NEXT_PUBLIC_API_URL` | `https://<your-render-service>.onrender.com/api` |
+
+5. Deploy. Then set `CORS_ORIGIN` on Render to the Vercel origin (`https://….vercel.app`, no trailing slash, no `/api`) and restart the API.
+
+Open the Vercel URL, sign up, and log a meal. The first API call after idle may take ~30–60 seconds while Render wakes up.

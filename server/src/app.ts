@@ -9,6 +9,12 @@ import { apiRouter } from './routes/index.js';
 export function createApp() {
   const app = express();
 
+  // Render (and any other reverse proxy) terminates TLS. Trust the first hop so
+  // forwarded proto/host are visible if we ever need them.
+  if (config.isProduction) {
+    app.set('trust proxy', 1);
+  }
+
   app.use(helmet());
   app.use(cors({ origin: config.corsOrigins, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
