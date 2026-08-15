@@ -1,4 +1,4 @@
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import { paginationValidators } from '../lib/pagination.js';
 
 const macroTarget = (name: string, label: string) =>
@@ -30,5 +30,19 @@ export const createGoalValidators = [
 ];
 
 export const listGoalsValidators = paginationValidators;
+
+/**
+ * Which day to read the targets for. A calendar day rather than a timestamp,
+ * because the answer differs either side of midnight and only the client knows
+ * where that midnight falls.
+ */
+export const currentGoalValidators = [
+  query('date')
+    .optional()
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('date must be a calendar date in YYYY-MM-DD form.')
+    .isISO8601({ strict: true })
+    .withMessage('date must be a real calendar date.'),
+];
 
 export const goalIdValidators = [param('id').trim().notEmpty().withMessage('Goal id is required.')];

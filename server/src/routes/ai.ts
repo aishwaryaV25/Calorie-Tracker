@@ -2,9 +2,13 @@ import { Router } from 'express';
 import { asyncHandler } from '../lib/async-handler.js';
 import { badRequest } from '../lib/errors.js';
 import { isAiConfigured } from '../lib/ai-client.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireUser } from '../middleware/auth.js';
 import { IMAGE_SIZE_LIMIT_MB, uploadImage } from '../middleware/upload.js';
+import { handleValidation, validatedBody } from '../middleware/validate.js';
+import type { ChatRequestInput } from '../types/dto.js';
+import { chatValidators } from '../validators/ai.validator.js';
 import * as aiExtractService from '../services/aiExtractService.js';
+import * as chatService from '../services/chatService.js';
 
 export const aiRouter = Router();
 
@@ -36,5 +40,23 @@ aiRouter.post(
     );
 
     res.json(result);
+  }),
+);
+
+/**
+ * One turn of the conversational interface. The whole transcript is sent each
+ * time and nothing is stored, so this route holds no session of its own.
+ */
+aiRouter.post(
+  '/chat',
+  chatValidators,
+  handleValidation,
+  asyncHandler(async (req, res) => {
+    const reply = await chatService.respond(
+      requireUser(req).userId,
+      validatedBody<ChatRequestInput>(req),
+    );
+
+    res.json(reply);
   }),
 );

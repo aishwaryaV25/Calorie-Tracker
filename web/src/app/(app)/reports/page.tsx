@@ -7,6 +7,7 @@ import { useAsync } from '@/hooks/useAsync';
 import { formatCalories, formatDateKey } from '@/lib/format';
 import { Alert, Button, Card, Pagination, Skeleton } from '@/components/ui';
 import { CalorieTrendChart, WeeklyCaloriesChart } from '@/components/reports/CalorieTrendChart';
+import { DownloadReportButton } from '@/components/reports/DownloadReportButton';
 import { GoalComparisonChart } from '@/components/reports/GoalComparisonChart';
 import { MacroBreakdownChart } from '@/components/reports/MacroBreakdownChart';
 import { MicronutrientTable } from '@/components/reports/MicronutrientTable';
@@ -38,6 +39,7 @@ function rangeWarning(range: DateRange): string | null {
 export default function ReportsPage() {
   const [range, setRange] = useState<DateRange>(defaultRange);
   const [microPage, setMicroPage] = useState(1);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const days = rangeDays(range);
   const warning = rangeWarning(range);
@@ -71,6 +73,7 @@ export default function ReportsPage() {
     setRange(next);
     // The nutrients on page 3 of the old range have nothing to do with the new one.
     setMicroPage(1);
+    setDownloadError(null);
   }
 
   // The reports share a range, so a bad range fails them all identically; one
@@ -96,13 +99,29 @@ export default function ReportsPage() {
         </Link>
       </header>
 
+      {/* The range and the button that acts on it share one box, so it is obvious
+          the download covers the dates shown beside it. */}
       <Card>
-        <ReportRangePicker value={range} onChange={applyRange} />
+        <ReportRangePicker
+          value={range}
+          onChange={applyRange}
+          action={
+            <DownloadReportButton
+              range={range}
+              isDisabled={warning !== null}
+              onError={setDownloadError}
+            />
+          }
+        />
       </Card>
 
       {/* A bad range fails every request the same way, so the warning already
           explains the errors underneath it. */}
-      {warning ? <Alert tone="warning">{warning}</Alert> : error && <Alert>{error}</Alert>}
+      {warning ? (
+        <Alert tone="warning">{warning}</Alert>
+      ) : (
+        (downloadError ?? error) && <Alert>{downloadError ?? error}</Alert>
+      )}
 
       <SummaryTiles comparison={comparison.data} isLoading={comparison.isLoading} />
 

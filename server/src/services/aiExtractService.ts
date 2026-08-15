@@ -7,6 +7,7 @@ import {
   unitForNutrient,
   type MealType,
 } from '../domain/nutrition.js';
+import { config } from '../config.js';
 import { AiResponseError, createCompletion, parseJsonContent } from '../lib/ai-client.js';
 import { unprocessable } from '../lib/errors.js';
 
@@ -185,6 +186,12 @@ export async function extractNutritionFromImage(
   const completion = await createCompletion({
     temperature: 0,
     maxTokens: MAX_RESPONSE_TOKENS,
+    // The default model is the one chosen for its vision, and the configured
+    // effort belongs to this path: there is one right answer on the label, so
+    // deliberating about it only costs time.
+    reasoningEffort: config.ai.reasoningEffort,
+    rejectionMessage:
+      'The AI service could not read this file. It may be corrupt, too small, or in a format the model does not support.',
     jsonSchema: { name: 'nutrition_extraction', schema: responseSchema },
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },

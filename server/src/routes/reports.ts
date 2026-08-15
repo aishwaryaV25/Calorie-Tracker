@@ -4,6 +4,7 @@ import { authenticate, requireUser } from '../middleware/auth.js';
 import { handleValidation, validatedQuery } from '../middleware/validate.js';
 import type { ReportRangeQuery } from '../types/dto.js';
 import { reportRangeValidators } from '../validators/reports.validator.js';
+import * as reportPdfService from '../services/reportPdfService.js';
 import * as reportsService from '../services/reportsService.js';
 
 export const reportsRouter = Router();
@@ -63,6 +64,30 @@ reportsRouter.get(
       validatedQuery<ReportRangeQuery>(req),
     );
     res.json(report);
+  }),
+);
+
+/**
+ * The whole report as a PDF: the same figures as the endpoints above, laid out as
+ * a document. Built on the server so the numbers and the theme come from one
+ * place, and so the file can be saved or sent on without a browser involved.
+ */
+reportsRouter.get(
+  '/pdf',
+  reportRangeValidators,
+  handleValidation,
+  asyncHandler(async (req, res) => {
+    const { buffer, filename } = await reportPdfService.buildReportPdf(
+      requireUser(req).userId,
+      validatedQuery<ReportRangeQuery>(req),
+    );
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    // Named explicitly so the browser can read it back off a cross-origin
+    // response, which is what lets the download keep this filename.
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.send(buffer);
   }),
 );
 

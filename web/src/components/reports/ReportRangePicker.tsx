@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { cx, Input } from '@/components/ui';
 import { daysAgoKey, todayKey } from '@/lib/format';
 
@@ -44,9 +45,12 @@ export function rangeDays(range: DateRange): number | null {
 export function ReportRangePicker({
   value,
   onChange,
+  action,
 }: {
   value: DateRange;
   onChange: (range: DateRange) => void;
+  /** Sits at the right-hand end of the row, for an action that uses this range. */
+  action?: ReactNode;
 }) {
   // A preset is "active" when the current range happens to equal it, so typing
   // the same dates by hand highlights it too.
@@ -97,6 +101,15 @@ export function ReportRangePicker({
             onChange={(event) => onChange({ ...value, to: event.target.value })}
           />
         </label>
+
+        {action && (
+          <>
+            {/* Separates the dates from what acts on them, so the row does not
+                read as one long strip of controls. */}
+            <span aria-hidden className="mx-1 hidden h-6 w-px bg-border sm:block" />
+            {action}
+          </>
+        )}
       </div>
     </div>
   );

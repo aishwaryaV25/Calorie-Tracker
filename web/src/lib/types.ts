@@ -165,6 +165,24 @@ export interface CreateEntryPayload {
   micronutrients?: { nutrient: string; amount: number; unit?: string }[];
 }
 
+/** One turn of the conversation. The client keeps the transcript; the API does not. */
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/** Something the assistant changed in the diary during a turn. */
+export interface ChatAction {
+  tool: string;
+  label: string;
+  entryId?: string;
+}
+
+export interface ChatReply {
+  reply: string;
+  actions: ChatAction[];
+}
+
 export interface CreateGoalPayload {
   dailyCalories: number;
   proteinGrams: number;
@@ -172,6 +190,34 @@ export interface CreateGoalPayload {
   fatGrams: number;
   targetWeightKg?: number;
   effectiveFrom?: string;
+}
+
+export interface ImportDraftRow {
+  foodName: string;
+  mealType: MealType;
+  quantity: number;
+  unit: string;
+  calories: number;
+  proteinGrams: number;
+  carbGrams: number;
+  fatGrams: number;
+  consumedOn: string;
+  consumedAt?: string;
+}
+
+export interface ImportPreview {
+  method: 'script' | 'gemini';
+  rows: ImportDraftRow[];
+  warnings: string[];
+  notes: string | null;
+  headerGuess: string[] | null;
+  schema: string | null;
+  pageCount: number;
+  deepAnalyseAvailable: boolean;
+}
+
+export interface ImportCommitResult {
+  imported: number;
 }
 
 export interface FieldError {

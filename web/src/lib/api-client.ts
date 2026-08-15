@@ -1,5 +1,7 @@
 import type {
   AuthResponse,
+  ChatReply,
+  ChatTurn,
   CreateEntryPayload,
   CreateGoalPayload,
   DailyReportRow,
@@ -7,6 +9,9 @@ import type {
   ExtractionResult,
   FieldError,
   FoodEntry,
+  ImportCommitResult,
+  ImportDraftRow,
+  ImportPreview,
   Goal,
   GoalComparison,
   MacroBreakdown,
@@ -130,6 +135,55 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return payload as T;
 }
 
+export interface DownloadedFile {
+  blob: Blob;
+  /** The name the API suggested, so the saved file matches what it contains. */
+  filename: string;
+}
+
+/**
+ * A binary response, such as the PDF report.
+ *
+ * Separate from `request` because a download differs at every step: the body is
+ * never JSON, the filename is in a header, and a failure still arrives as JSON
+ * and has to be unpicked before it can be reported.
+ */
+async function requestFile(
+  path: string,
+  query: QueryParams,
+  fallbackName: string,
+): Promise<DownloadedFile> {
+  const token = tokenStorage.get();
+  let response: Response;
+
+  try {
+    response = await fetch(buildUrl(path, query), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  } catch {
+    throw new ApiError(0, 'NETWORK_ERROR', 'Could not reach the server. Is the API running?');
+  }
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { code?: string; message?: string; details?: unknown };
+    } | null;
+    const error = payload?.error;
+
+    throw new ApiError(
+      response.status,
+      error?.code ?? 'UNKNOWN',
+      error?.message ?? 'The file could not be generated.',
+      Array.isArray(error?.details) ? (error.details as FieldError[]) : [],
+    );
+  }
+
+  const disposition = response.headers.get('Content-Disposition') ?? '';
+  const match = /filename="?([^";]+)"?/.exec(disposition);
+
+  return { blob: await response.blob(), filename: match?.[1] ?? fallbackName };
+}
+
 /**
  * Filter types carry an index signature so they satisfy the query-string
  * builder, which accepts any bag of scalar values.
@@ -172,7 +226,11 @@ export const api = {
   },
 
   goals: {
-    current: () => request<{ goal: Goal | null }>('/goals/current'),
+    /**
+     * `date` is the caller's own calendar day. Sent explicitly because the server
+     * would otherwise use its UTC day, which is not the day the user is having.
+     */
+    current: (date: string) => request<{ goal: Goal | null }>('/goals/current', { query: { date } }),
     history: (query: QueryParams = {}) => request<Paginated<Goal>>('/goals', { query }),
     save: (body: CreateGoalPayload) => request<Goal>('/goals', { method: 'POST', body }),
     remove: (id: string) => request<void>(`/goals/${id}`, { method: 'DELETE' }),
@@ -194,6 +252,8 @@ export const api = {
       request<Paginated<MicronutrientRow> & { days: number }>('/reports/micronutrients', { query }),
     goalComparison: (query: ReportRange) =>
       request<GoalComparison>('/reports/goal-comparison', { query }),
+    /** The whole report as a PDF, laid out and named by the server. */
+    pdf: (query: ReportRange) => requestFile('/reports/pdf', query, 'calorie-report.pdf'),
   },
 
   ai: {
@@ -203,5 +263,30 @@ export const api = {
       formData.append('image', file);
       return request<ExtractionResult>('/ai/extract', { method: 'POST', formData });
     },
+    /**
+     * One turn of conversation. The whole transcript goes up each time because the
+     * API keeps no session, and `today` tells the assistant which day it is where
+     * the user is rather than where the server is.
+     */
+    chat: (body: { messages: ChatTurn[]; today: string }) =>
+      request<ChatReply>('/ai/chat', { method: 'POST', body }),
+  },
+
+  imports: {
+    status: () => request<{ deepAnalyseAvailable: boolean }>('/imports/status'),
+    /**
+     * Reads a PDF into a draft table. `mode` is "script" on the first pass and
+     * "gemini" when the user asks for a deep analyse. The file goes up each
+     * time because the API keeps no copy of it.
+     */
+    parse: (file: File, today: string, mode: 'script' | 'gemini' = 'script') => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('today', today);
+      formData.append('mode', mode);
+      return request<ImportPreview>('/imports/parse', { method: 'POST', formData });
+    },
+    commit: (body: { today: string; rows: ImportDraftRow[] }) =>
+      request<ImportCommitResult>('/imports/commit', { method: 'POST', body }),
   },
 };

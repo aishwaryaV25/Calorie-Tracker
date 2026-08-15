@@ -83,3 +83,19 @@ export interface ReportRangeQuery extends PaginationQuery {
   from?: Date;
   to?: Date;
 }
+
+export interface ChatTurnInput {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatRequestInput {
+  /** The conversation so far, oldest first, ending with the user's new message. */
+  messages: ChatTurnInput[];
+  /**
+   * The user's own calendar day, as "YYYY-MM-DD". Anchors "today" and "yesterday"
+   * for the assistant and decides which day a logged meal counts towards, for the
+   * same reason `consumedOn` exists on an entry.
+   */
+  today?: string;
+}

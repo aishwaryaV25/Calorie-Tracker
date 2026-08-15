@@ -18,7 +18,7 @@ export default function DashboardPage() {
   const refresh = useCallback(() => setReloadToken((token) => token + 1), []);
 
   const aiStatus = useAsync(() => api.ai.status(), []);
-  const goal = useAsync(() => api.goals.current(), [reloadToken]);
+  const goal = useAsync(() => api.goals.current(today), [today, reloadToken]);
 
   const entries = useAsync(
     () => api.entries.list({ from: today, to: today, pageSize: 100, order: 'asc' }),

@@ -44,8 +44,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-10 border-b border-border bg-surface/90 backdrop-blur">
-        <div className="flex items-center gap-6 px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-2">
+        {/* Three equal leftover columns so the links sit in the middle of the
+            viewport, not in the leftover gap after the logo. The logo and the
+            account controls are different widths; a flex row would still shove
+            the nav toward whichever side is thinner. */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <Link href="/dashboard" className="flex shrink-0 items-center gap-2 justify-self-start">
             {/* Solid red mark, echoing the square logo in the reference. */}
             <span className="grid size-6 place-items-center rounded bg-accent text-xs font-bold text-on-accent">
               C
@@ -55,9 +59,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
 
-          {/* Scrolls sideways rather than wrapping, so the header stays one row on narrow screens. */}
           <nav
-            className="flex flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]"
+            className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none]"
             aria-label="Main"
           >
             {NAV_ITEMS.map((item) => {
@@ -81,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-end gap-3 justify-self-end">
             <span className="hidden text-sm text-muted sm:inline">{user.displayName}</span>
             <Button variant="ghost" onClick={logout} className="px-2 py-1">
               Sign out

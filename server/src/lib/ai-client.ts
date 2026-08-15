@@ -15,7 +15,8 @@ export interface ImageContent {
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | (TextContent | ImageContent)[];
+  /** Null when the model replied with tool calls alone and no prose. */
+  content: string | null | (TextContent | ImageContent)[];
   tool_call_id?: string;
   tool_calls?: ToolCall[];
 }
@@ -37,12 +38,27 @@ export interface ToolDefinition {
 
 interface CompletionRequest {
   messages: ChatMessage[];
+  /** Defaults to the configured model, which is the one that can read images. */
+  model?: string;
   tools?: ToolDefinition[];
   /** Ask the model for a JSON object conforming to this schema. */
   jsonSchema?: { name: string; schema: Record<string, unknown> };
   temperature?: number;
   /** Caps the reply, which is what bounds the worst-case wait for the user. */
   maxTokens?: number;
+  /**
+   * Sent only when given. Left out the provider's own default applies, which is
+   * the right choice whenever the caller cannot know that the model in use
+   * accepts the value: providers disagree on which levels exist.
+   */
+  reasoningEffort?: string;
+  /**
+   * What to tell the user if the provider refuses the request outright. Supplied
+   * by the caller because only it knows what the user was doing: the same 4xx
+   * means "this photo cannot be read" on one path and "that message could not be
+   * acted on" on another.
+   */
+  rejectionMessage?: string;
 }
 
 export interface CompletionResult {
@@ -125,12 +141,50 @@ function withSchemaInstruction(request: CompletionRequest): ChatMessage[] {
 }
 
 /**
- * Single place where the app talks to the model provider. Everything else works
- * with plain objects, so swapping providers means editing this file only.
+ * A rate limit worth waiting out rather than reporting. Metered free tiers refill
+ * per minute, so a request that arrives just over the line is told to come back
+ * in a second or two — quicker than the user could retry, and invisible to them.
  */
-export async function createCompletion(request: CompletionRequest): Promise<CompletionResult> {
-  assertConfigured();
+const MAX_RETRY_WAIT_MS = 6_000;
 
+/** How long the provider asks us to wait, in milliseconds, or null if it did not. */
+function rateLimitWait(response: Response): number | null {
+  if (response.status !== 429) {
+    return null;
+  }
+
+  const retryAfter = Number(response.headers.get('retry-after'));
+  return Number.isFinite(retryAfter) && retryAfter > 0 ? Math.ceil(retryAfter * 1_000) : null;
+}
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+interface Attempt {
+  response: Response;
+  /** The failure body, read once so it can be both classified and logged. */
+  errorText: string;
+}
+
+/**
+ * Whether a failed attempt is worth exactly one more.
+ *
+ * Two cases qualify. A rate limit the provider expects to clear in a moment,
+ * and a tool call the model itself mangled — Groq validates the arguments the
+ * model produced and rejects the request when they are not valid JSON, which is a
+ * sampling accident rather than anything wrong with what was asked. Sampling
+ * again almost always yields a well-formed call.
+ */
+function shouldRetry({ response, errorText }: Attempt): boolean {
+  const wait = rateLimitWait(response);
+
+  if (wait !== null) {
+    return wait <= MAX_RETRY_WAIT_MS;
+  }
+
+  return response.status === 400 && errorText.includes('tool_use_failed');
+}
+
+async function post(body: string): Promise<Attempt> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -142,65 +196,10 @@ export async function createCompletion(request: CompletionRequest): Promise<Comp
         'Content-Type': 'application/json',
         Authorization: `Bearer ${config.ai.apiKey}`,
       },
-      body: JSON.stringify({
-        model: config.ai.model,
-        messages: withSchemaInstruction(request),
-        temperature: request.temperature ?? 0.1,
-        ...(request.maxTokens ? { max_completion_tokens: request.maxTokens } : {}),
-        ...(request.tools ? { tools: request.tools } : {}),
-        ...(config.ai.reasoningEffort
-          ? { reasoning_effort: config.ai.reasoningEffort }
-          : {}),
-        ...responseFormat(request.jsonSchema),
-      }),
+      body,
     });
 
-    if (!response.ok) {
-      const body = await response.text();
-      // Provider errors are logged in full but summarised to the client, which
-      // has no use for upstream detail and should not see account information.
-      console.error(`AI provider returned ${response.status}: ${body}`);
-
-      // A 4xx means the provider understood the request and refused it, and the
-      // only part a caller controls is the file they uploaded — an image too
-      // small to analyse, or one that is corrupt. Reporting that as a server
-      // fault would send them off to retry something that cannot succeed.
-      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-        throw badRequest(
-          'The AI service could not read this file. It may be corrupt, too small, or in a format the model does not support.',
-        );
-      }
-
-      if (response.status === 429) {
-        // Free tiers are metered per minute and the provider says how long to
-        // wait, which is far more useful to a user than "try again later".
-        const retryAfter = Number(response.headers.get('retry-after'));
-        const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.ceil(retryAfter) : null;
-
-        throw serviceUnavailable(
-          wait
-            ? `The AI service is rate limited. Try again in about ${wait} second${wait === 1 ? '' : 's'}.`
-            : 'The AI service is rate limited right now. Please try again in a moment.',
-        );
-      }
-
-      throw serviceUnavailable('The AI service could not process this request.');
-    }
-
-    const payload = (await response.json()) as {
-      choices?: { message?: { content?: string | null; tool_calls?: ToolCall[] } }[];
-    };
-
-    const message = payload.choices?.[0]?.message;
-
-    if (!message) {
-      throw new AiResponseError('The AI service returned an empty response.');
-    }
-
-    return {
-      content: stripReasoning(message.content ?? null),
-      toolCalls: message.tool_calls ?? [],
-    };
+    return { response, errorText: response.ok ? '' : await response.text() };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw serviceUnavailable('The AI service took too long to respond. Please try again.');
@@ -209,6 +208,76 @@ export async function createCompletion(request: CompletionRequest): Promise<Comp
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * Single place where the app talks to the model provider. Everything else works
+ * with plain objects, so swapping providers means editing this file only.
+ */
+export async function createCompletion(request: CompletionRequest): Promise<CompletionResult> {
+  assertConfigured();
+
+  const body = JSON.stringify({
+    model: request.model ?? config.ai.model,
+    messages: withSchemaInstruction(request),
+    temperature: request.temperature ?? 0.1,
+    ...(request.maxTokens ? { max_completion_tokens: request.maxTokens } : {}),
+    ...(request.tools ? { tools: request.tools } : {}),
+    ...(request.reasoningEffort ? { reasoning_effort: request.reasoningEffort } : {}),
+    ...responseFormat(request.jsonSchema),
+  });
+
+  let attempt = await post(body);
+
+  // Retried once only: if the second try fails too, the caller is better off
+  // being told than held any longer.
+  if (shouldRetry(attempt)) {
+    await delay(rateLimitWait(attempt.response) ?? 0);
+    attempt = await post(body);
+  }
+
+  const { response, errorText } = attempt;
+
+  if (!response.ok) {
+    // Provider errors are logged in full but summarised to the client, which has
+    // no use for upstream detail and should not see account information.
+    console.error(`AI provider returned ${response.status}: ${errorText}`);
+
+    if (response.status === 429) {
+      // Saying how long to wait is far more useful to a user than "try later".
+      const seconds = Math.ceil((rateLimitWait(response) ?? 0) / 1_000);
+
+      throw serviceUnavailable(
+        seconds > 0
+          ? `The AI service is rate limited. Try again in about ${seconds} second${seconds === 1 ? '' : 's'}.`
+          : 'The AI service is rate limited right now. Please try again in a moment.',
+      );
+    }
+
+    // A 4xx means the provider understood the request and refused it, so nothing
+    // will change by sending the same thing again. Reporting that as a server
+    // fault would send the user off retrying something that cannot succeed.
+    if (response.status >= 400 && response.status < 500) {
+      throw badRequest(request.rejectionMessage ?? 'The AI service could not process this request.');
+    }
+
+    throw serviceUnavailable('The AI service could not process this request.');
+  }
+
+  const payload = (await response.json()) as {
+    choices?: { message?: { content?: string | null; tool_calls?: ToolCall[] } }[];
+  };
+
+  const message = payload.choices?.[0]?.message;
+
+  if (!message) {
+    throw new AiResponseError('The AI service returned an empty response.');
+  }
+
+  return {
+    content: stripReasoning(message.content ?? null),
+    toolCalls: message.tool_calls ?? [],
+  };
 }
 
 /** Parses a JSON payload returned by the model, with a clear error if it is malformed. */

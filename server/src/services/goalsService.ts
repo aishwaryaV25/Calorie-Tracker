@@ -60,7 +60,14 @@ export async function setGoal(userId: string, input: CreateGoalInput): Promise<G
   return toGoalDto(goal);
 }
 
-/** The goal in force on `date`: the most recent version not later than that day. */
+/**
+ * The goal in force on `date`: the most recent version not later than that day.
+ *
+ * There is deliberately no "current goal" convenience wrapper around this. The
+ * server's own UTC day is not the day the user is having — a goal saved at 04:00
+ * in Delhi is dated tomorrow as far as UTC is concerned — so every caller has to
+ * say which day it means.
+ */
 export async function getGoalForDate(userId: string, date: Date): Promise<GoalDto | null> {
   const goal = await prisma.goal.findFirst({
     where: { userId, effectiveFrom: { lte: startOfUtcDay(date) } },
@@ -69,8 +76,6 @@ export async function getGoalForDate(userId: string, date: Date): Promise<GoalDt
 
   return goal ? toGoalDto(goal) : null;
 }
-
-export const getCurrentGoal = (userId: string) => getGoalForDate(userId, new Date());
 
 /**
  * Every goal version that applies to any day in the range, newest first. Reports

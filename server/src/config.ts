@@ -73,6 +73,15 @@ const aiBaseUrl = optional('AI_BASE_URL', 'https://api.openai.com/v1').replace(/
 const aiModel = optional('AI_MODEL', process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini');
 
 /**
+ * Chat may use a different model from image extraction, because the two jobs ask
+ * for different things: reading a photo needs vision, while the assistant needs
+ * dependable tool calling and short replies. On a metered free tier they are also
+ * budgeted separately, so splitting them stops a few chat turns from exhausting
+ * the allowance for reading a photo. Left blank, one model does both.
+ */
+const aiChatModel = optional('AI_CHAT_MODEL', aiModel);
+
+/**
  * How to ask for JSON back. `schema` sends a strict JSON schema, which OpenAI
  * honours exactly; `object` asks only for valid JSON and describes the shape in
  * the prompt instead, which is all most OpenAI-compatible providers support.
@@ -84,18 +93,37 @@ if (!['schema', 'object'].includes(aiJsonMode)) {
 }
 
 /**
- * How hard a reasoning model should think before answering. Left blank the
- * parameter is not sent at all, because a provider that does not know it
- * rejects the whole request.
+ * How hard a reasoning model should think before reading an image. Left blank the
+ * parameter is not sent at all, because a provider that does not know it rejects
+ * the whole request.
  *
- * Worth setting for models that reason by default: this app asks narrow,
- * well-specified questions, so deliberation mostly buys latency and tokens.
+ * Worth setting for a model that reasons by default: extraction asks a narrow
+ * question with the answer shape already pinned down, so deliberation there mostly
+ * buys latency and tokens.
+ *
+ * It applies to extraction alone, and the accepted values are why: they differ
+ * per model, with "none" valid on Qwen and rejected by gpt-oss, which takes only
+ * low, medium or high. Rather than keep a matching setting per model, chat sends
+ * nothing and takes the provider's own default, which is what suits it anyway.
  */
 const aiReasoningEffort = optional('AI_REASONING_EFFORT', '');
 
 if (aiReasoningEffort && !['none', 'low', 'medium', 'high'].includes(aiReasoningEffort)) {
   problems.push('AI_REASONING_EFFORT must be empty or one of: none, low, medium, high');
 }
+
+/**
+ * Gemini is a second provider, used only for the PDF import's deep-analyse
+ * fallback. It is kept apart from the Groq/OpenAI settings because the two
+ * speak different APIs, and so a missing Gemini key does not take photo
+ * extraction or chat down with it.
+ */
+const geminiApiKey = (process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? '').trim();
+const geminiModel = optional('GEMINI_MODEL', 'gemini-2.5-flash');
+const geminiBaseUrl = optional(
+  'GEMINI_BASE_URL',
+  'https://generativelanguage.googleapis.com/v1beta',
+).replace(/\/+$/, '');
 
 if (problems.length > 0) {
   throw new ConfigError(problems);
@@ -119,6 +147,7 @@ export const config = {
     apiKey: aiApiKey,
     baseUrl: aiBaseUrl,
     model: aiModel,
+    chatModel: aiChatModel,
     jsonMode: aiJsonMode as 'schema' | 'object',
     reasoningEffort: aiReasoningEffort,
     /**
@@ -126,5 +155,11 @@ export const config = {
      * the app remains runnable for anyone who just wants to try the core features.
      */
     isConfigured: aiApiKey.length > 0,
+  },
+  gemini: {
+    apiKey: geminiApiKey,
+    model: geminiModel,
+    baseUrl: geminiBaseUrl,
+    isConfigured: geminiApiKey.length > 0,
   },
 } as const;

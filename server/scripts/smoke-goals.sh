@@ -39,6 +39,19 @@ echo "== current resolves to the newest applicable version =="
 curl -s "$BASE/goals/current" -H "$AUTH" \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const g=JSON.parse(s).goal;console.log("  ",g.effectiveFrom,g.dailyCalories,"kcal")})'
 
+# Regression: a goal saved for the user's own day used to read back as "no goal"
+# whenever the server's UTC day was still yesterday — early morning anywhere east
+# of Greenwich. The day now comes from the client rather than the server's clock.
+echo "== current is answered for the day the client asks about =="
+curl -s -o /dev/null -X POST "$BASE/goals" -H "$AUTH" -H 'Content-Type: application/json' \
+  -d "{\"dailyCalories\":2600,\"proteinGrams\":180,\"carbGrams\":250,\"fatGrams\":75,\"effectiveFrom\":\"$(date -v+1d +%F 2>/dev/null || date -d tomorrow +%F)\"}"
+echo -n "  tomorrow's targets, asked for tomorrow: "
+curl -s "$BASE/goals/current?date=$(date -v+1d +%F 2>/dev/null || date -d tomorrow +%F)" -H "$AUTH" | pick goal.dailyCalories
+echo -n "  the same goal, asked for today:         "
+curl -s "$BASE/goals/current?date=$(date +%F)" -H "$AUTH" | pick goal.dailyCalories
+echo -n "  a malformed date is rejected:           "
+curl -s "$BASE/goals/current?date=01-01-2026" -H "$AUTH" | pick error.details.0.message
+
 echo "== validation =="
 curl -s -X POST "$BASE/goals" -H "$AUTH" -H 'Content-Type: application/json' \
   -d '{"dailyCalories":-5,"proteinGrams":140,"carbGrams":200,"fatGrams":60}' \

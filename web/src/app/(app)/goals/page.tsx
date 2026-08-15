@@ -20,7 +20,7 @@ export default function GoalsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const current = useAsync(() => api.goals.current(), [revision]);
+  const current = useAsync(() => api.goals.current(today), [today, revision]);
   const todayTotals = useAsync(
     () => api.entries.list({ from: today, to: today, pageSize: 1 }),
     [today, revision],
