@@ -10,6 +10,7 @@ services:
     rootDir: server
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm run start:prod
+    autoDeploy: true
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV

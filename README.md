@@ -106,7 +106,7 @@ Render’s free instance sleeps after 15 minutes idle and takes about a minute t
 1. Push this repo to GitHub.
 2. [Render](https://dashboard.render.com) → **New** → **Web Service** → this repo.
 3. Set **Root Directory** to `server`, instance type **Free**.
-4. Build `npm ci --include=dev && npm run build`, start `npm run start:prod`.
+4. Leave **Build** and **Start** as they are if the service already exists. Do not add a trailing period. Fresh service: Build `npm ci --include=dev && npm run build`, Start `npm run start:prod`.
 5. Health check path: `/api/health`.
 6. Add environment variables (same names as `server/.env.example`):
 
