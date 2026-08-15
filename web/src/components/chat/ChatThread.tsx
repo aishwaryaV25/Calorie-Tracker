@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { Button, cx } from '@/components/ui';
-import type { ChatAction, ChatTurn } from '@/lib/types';
+import type { ChatAction, ChatPendingAction, ChatTurn } from '@/lib/types';
 
 export interface ThreadTurn extends ChatTurn {
   id: string;
