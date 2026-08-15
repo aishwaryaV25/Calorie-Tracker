@@ -10,6 +10,7 @@ import { badRequest, serviceUnavailable } from './errors.js';
  */
 
 const REQUEST_TIMEOUT_MS = 60_000;
+const CHAT_TIMEOUT_MS = 20_000;
 const CAPACITY_RETRY_MS = 800;
 
 export const isGeminiConfigured = () => config.gemini.isConfigured;
@@ -135,7 +136,7 @@ export async function createChatCompletion(request: {
 
   const last = await tryModels(async (model) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
 
     try {
       const response = await fetch(`${config.gemini.baseUrl}/openai/chat/completions`, {
@@ -149,6 +150,9 @@ export async function createChatCompletion(request: {
           model,
           messages,
           temperature: request.temperature ?? 0.5,
+          // Gemini 3.x thinks at "medium" unless told otherwise — that is the
+          // 10–20s hang. "none" is rejected on 3.x; "minimal" is the floor.
+          reasoning_effort: 'minimal',
           ...(request.maxTokens ? { max_tokens: request.maxTokens } : {}),
           ...(request.tools ? { tools: request.tools } : {}),
           ...(request.jsonSchema ? { response_format: { type: 'json_object' } } : {}),
@@ -200,7 +204,9 @@ async function tryModels(
   let last: { response: Response; errorText: string } | undefined;
 
   for (const model of config.gemini.models) {
+    const started = Date.now();
     last = await send(model);
+    console.info(`Gemini ${model} ${last.response.status} ${Date.now() - started}ms`);
 
     if (last.response.ok) {
       if (model !== config.gemini.model) {
@@ -214,7 +220,9 @@ async function tryModels(
     }
 
     console.warn(`Gemini ${model} unavailable (${last.response.status}); trying the next Flash model.`);
-    await delay(CAPACITY_RETRY_MS);
+    if (last.response.status !== 404) {
+      await delay(CAPACITY_RETRY_MS);
+    }
   }
 
   return last ?? { response: new Response(null, { status: 503 }), errorText: '' };

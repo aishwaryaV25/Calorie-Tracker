@@ -59,13 +59,8 @@ const MAX_TOOL_ROUNDS = 5;
 /** A runaway model cannot write more than this many rows in a single turn. */
 const MAX_TOOL_CALLS = 8;
 
-/**
- * Generous for a three-sentence answer because a reasoning model spends this
- * budget thinking before it writes. Set to 600 the model could exhaust the cap
- * deliberating over a two-item meal and return nothing at all — no reply and no
- * tool call — which looked exactly like a broken feature.
- */
-const MAX_REPLY_TOKENS = 1_500;
+/** A short paragraph plus one tool-call payload. Thinking is pinned to minimal. */
+const MAX_REPLY_TOKENS = 800;
 
 /**
  * Warmer than the extraction prompt, which wants the same numbers every time, but
