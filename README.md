@@ -63,14 +63,13 @@ Local SQLite diaries are not imported. After switching to Neon, create a new acc
 From the repo root:
 
 ```bash
-npm test          # unit tests + API regression (isolated test.db)
-npm run test:e2e  # browser CRUD (starts API + web if they are not already up)
-npm run test:all  # both
+npm test          # unit tests + API regression — this is the PR gate
+npm run test:e2e  # local Playwright walkthrough (not run in CI)
 ```
 
-`npm test` runs unit tests plus the API suite against Postgres (`DATABASE_URL` in `server/.env`, or the CI Postgres service). It does not use SQLite.
+`npm test` is what GitHub Actions runs on every push and pull request. It covers dates, pagination, nutrition, AI sanitising, PDF parsing, and HTTP CRUD against Postgres (`DATABASE_URL` in `server/.env`, or the CI Postgres service).
 
-The UI suite covers signup, goals, meal CRUD, filters, pagination, reports, PDF import, chat, and user isolation. GitHub Actions runs the same commands on every push.
+Playwright (`web/e2e`) is a local UI check only. It is not part of the production test gate.
 
 ## What is implemented
 
@@ -81,7 +80,7 @@ The UI suite covers signup, goals, meal CRUD, filters, pagination, reports, PDF 
 | Time-range listing, date + meal filters, pagination | `/entries` · `GET /api/entries` |
 | Reports: daily trend, weekly totals, macro split, micros, goal vs actual | `/reports` · `/api/reports/*` |
 | AI photo extract (label or plate) | `/log` · `POST /api/ai/extract` |
-| Chat assistant | `/chat` · `POST /api/ai/chat` |
+| Chat assistant (agentic tools + pending choices) | `/chat` · `POST /api/ai/chat` |
 | Multi-user signup / login / isolation | `/signup`, `/login` · `/api/auth` |
 | Bulk PDF import | `/import` · `/api/imports` |
 

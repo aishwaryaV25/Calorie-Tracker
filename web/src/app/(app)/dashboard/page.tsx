@@ -7,10 +7,12 @@ import { daysAgoKey, formatCalories, formatGrams, formatTime, todayKey } from '@
 import { Alert, Badge, Button, Card, EmptyState, Skeleton } from '@/components/ui';
 import { EntryFormModal } from '@/components/entries/EntryFormModal';
 import { CalorieTrendChart } from '@/components/reports/CalorieTrendChart';
+import { useDataRevision } from '@/lib/data-sync';
 import { MEAL_LABELS, MEAL_TYPES, type FoodEntry, type MealType } from '@/lib/types';
 
 export default function DashboardPage() {
   const today = todayKey();
+  const dataRevision = useDataRevision();
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
   const [composingMeal, setComposingMeal] = useState<MealType | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -18,16 +20,16 @@ export default function DashboardPage() {
   const refresh = useCallback(() => setReloadToken((token) => token + 1), []);
 
   const aiStatus = useAsync(() => api.ai.status(), []);
-  const goal = useAsync(() => api.goals.current(today), [today, reloadToken]);
+  const goal = useAsync(() => api.goals.current(today), [today, reloadToken, dataRevision]);
 
   const entries = useAsync(
     () => api.entries.list({ from: today, to: today, pageSize: 100, order: 'asc' }),
-    [today, reloadToken],
+    [today, reloadToken, dataRevision],
   );
 
   const trend = useAsync(
     () => api.reports.daily({ from: daysAgoKey(6), to: today, pageSize: 7 }),
-    [today, reloadToken],
+    [today, reloadToken, dataRevision],
   );
 
   const isAiAvailable = aiStatus.data?.available ?? false;

@@ -2,7 +2,22 @@ import { config } from '../config.js';
 import { MEAL_TYPES } from '../domain/nutrition.js';
 import { createCompletion, type ChatMessage } from '../lib/ai-client.js';
 import { toDateKey } from '../lib/dates.js';
+import { prisma } from '../lib/prisma.js';
 import type { ChatRequestInput } from '../types/dto.js';
+import {
+  applyAttachPending,
+  interpretAttachMessage,
+  isAttachPending,
+  previewAttachment,
+} from './chatAttach.js';
+import {
+  applyPending,
+  describePending,
+  isPendingExpired,
+  looksLikePendingReply,
+  type PendingAction,
+  type PendingChoice,
+} from './chatPending.js';
 import {
   CHAT_TOOL_DEFINITIONS,
   runTool,
@@ -11,20 +26,26 @@ import {
   type ToolOutcome,
 } from './chatTools.js';
 
+export interface ChatAttachment {
+  buffer: Buffer;
+  mimeType: string;
+}
+
 /**
  * The conversational interface. Anything the app can do through its pages can be
  * done here in words, because the tools in `chatTools` are adapters over the very
  * same services the routes use.
  *
- * The transcript is not persisted. The client holds it and sends it back each
- * turn, which keeps the endpoint stateless and adds no schema; the trade-off,
- * documented in the README, is that a page reload starts a new conversation.
+ * Pending choices are echoed by the client rather than stored in the database, so
+ * a reload still starts a new conversation, but "which lunch?" does not depend
+ * on the model remembering the candidate list.
  */
 
 export interface ChatReply {
   reply: string;
-  /** Writes made during the turn, so the UI can show them and refresh its data. */
   actions: ChatAction[];
+  conversationId: string;
+  pendingAction: PendingAction | null;
 }
 
 /**
@@ -33,7 +54,7 @@ export interface ChatReply {
  * Three covers the longest sensible chain — find an entry, change it, read the
  * day back — while keeping the worst case to a handful of provider round trips.
  */
-const MAX_TOOL_ROUNDS = 3;
+const MAX_TOOL_ROUNDS = 5;
 
 /** A runaway model cannot write more than this many rows in a single turn. */
 const MAX_TOOL_CALLS = 8;
@@ -50,47 +71,73 @@ const MAX_REPLY_TOKENS = 1_500;
  * Warmer than the extraction prompt, which wants the same numbers every time, but
  * still low: this assistant reports figures rather than writing prose.
  */
-const TEMPERATURE = 0.3;
+const TEMPERATURE = 0.5;
 
-function systemPrompt(today: string): string {
-  return `You are the assistant inside a personal calorie tracker, working on the signed-in user's own food diary through the tools provided. Today is ${today}.
+function firstNameOf(displayName: string): string {
+  return displayName.trim().split(/\s+/)[0] ?? '';
+}
 
-Only a tool call changes anything. Never say you logged, changed, deleted or set something unless a tool returned it.
+function systemPrompt(today: string, firstName: string): string {
+  const who = firstName
+    ? `The person you are helping is ${firstName}. That is the name on their account — you already know it. If they ask whether you know their name, say it plainly.`
+    : `The signed-in user did not set a display name. Do not invent one.`;
+
+  return `You are the nutrition assistant in this calorie tracker. ${who} Today is ${today}.
+
+You act through the tools provided. Only a tool call changes the diary. Never say you logged, changed, deleted or set something unless a tool returned it.
 
 LOGGING
-- Estimate the calories and macros yourself from the food and portion described. Never ask the user for numbers; ask only when you cannot tell what was eaten or roughly how much.
+- Estimate calories and macros from the food and portion. Do not ask for numbers unless you cannot tell what was eaten or roughly how much.
 - One log_meal call per food: "toast and coffee" is two calls.
-- mealType is one of ${MEAL_TYPES.join(', ')}; infer it from the food or the time when unsaid. Work out dates against today and pass consumedOn as YYYY-MM-DD.
+- mealType is one of ${MEAL_TYPES.join(', ')}; infer it from the food or the time when unsaid. Resolve dates against today and pass consumedOn as YYYY-MM-DD.
 
 CHANGING
-- Call find_entries first for the entryId, and never invent one. If several entries match, ask which one.
+- Never invent an entryId. To change or delete a meal they pointed at by day or name, call update_entry or delete_entry with from/to/search/mealType and omit entryId. If several match, the tool asks them — do not pick one yourself.
+- deleteAll is only for "delete everything / all meals". The tool will ask for confirmation; do not set confirmAll until they have said yes.
 
 ANSWERING
-- About this user's food, goals or progress: read the real numbers with a tool first, never from memory. General nutrition questions need no tool.
+- About their food, goals or progress: read the real numbers with a tool first. General nutrition questions need no tool.
 - If a tool returns an error, say what went wrong in plain words and do not repeat the same call.
 
-STYLE: plain prose, three sentences at most, no markdown or tables. Round to whole kcal and grams. After a write, say what was saved.`;
+VOICE
+Write the way a good product assistant writes: warm, clear, and professional. Not stiff, not slangy. Use their name when it is natural — a greeting or a check-in — not in every sentence. A short paragraph is fine. No markdown tables. Round energy and macros to whole numbers. After a write, say what was saved in ordinary language.`;
 }
 
 /**
  * Runs one turn of the conversation to completion, including any tool calls the
  * model makes along the way.
  */
-export async function respond(userId: string, input: ChatRequestInput): Promise<ChatReply> {
-  // Collected here rather than inside the loop so that a provider failure part of
-  // the way through a turn can still report what was already written.
+export async function respond(
+  userId: string,
+  input: ChatRequestInput,
+  attachment?: ChatAttachment,
+): Promise<ChatReply> {
+  const conversationId = input.conversationId?.trim() || crypto.randomUUID();
+  const started = Date.now();
   const actions: ChatAction[] = [];
+  const profile = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { displayName: true },
+  });
+  const firstName = firstNameOf(profile?.displayName ?? '');
 
   try {
-    return await runTurn(userId, input, actions);
+    const reply = await runTurn(userId, input, actions, conversationId, firstName, attachment);
+    logTurn(conversationId, actions, reply.pendingAction, Date.now() - started);
+    return reply;
   } catch (error) {
     if (actions.length === 0) {
       throw error;
     }
 
-    // The writes are committed and the user has to be told, even though the
-    // sentence describing them never arrived.
-    return { reply: describeActions(actions), actions };
+    const reply = {
+      reply: describeActions(actions),
+      actions,
+      conversationId,
+      pendingAction: null,
+    };
+    logTurn(conversationId, actions, null, Date.now() - started, 'partial');
+    return reply;
   }
 }
 
@@ -98,11 +145,76 @@ async function runTurn(
   userId: string,
   input: ChatRequestInput,
   actions: ChatAction[],
+  conversationId: string,
+  firstName: string,
+  attachment?: ChatAttachment,
 ): Promise<ChatReply> {
   const context: ToolContext = { userId, today: input.today ?? toDateKey(new Date()) };
+  const lastUser = [...input.messages].reverse().find((turn) => turn.role === 'user')?.content ?? '';
+  const pending = asPending(input.pendingAction);
+
+  if (attachment) {
+    const previewed = await previewAttachment(attachment.buffer, attachment.mimeType, context.today);
+    return {
+      reply: previewed.reply,
+      actions: [],
+      conversationId,
+      pendingAction: previewed.pendingAction,
+    };
+  }
+
+  if (pending && !isPendingExpired(pending) && isAttachPending(pending)) {
+    const resolved = await applyAttachPending(
+      userId,
+      pending,
+      lastUser,
+      context.today,
+      input.choice as PendingChoice | undefined,
+    );
+
+    if (!resolved.unhandled) {
+      actions.push(...resolved.actions);
+      return {
+        reply: resolved.reply,
+        actions: resolved.actions,
+        conversationId,
+        pendingAction: resolved.pendingAction,
+      };
+    }
+
+    const interpreted = await interpretAttachMessage(pending, lastUser, context.today, userId);
+    if (!interpreted.unhandled) {
+      actions.push(...interpreted.actions);
+      return {
+        reply: interpreted.reply,
+        actions: interpreted.actions,
+        conversationId,
+        pendingAction: interpreted.pendingAction,
+      };
+    }
+
+    const aside = await answerAside(input.messages, firstName, context.today);
+    return {
+      reply: `${aside}\n\nThe draft is still open — say what to change, or tell me to log it.`,
+      actions: [],
+      conversationId,
+      pendingAction: pending,
+    };
+  }
+
+  if (pending && !isPendingExpired(pending) && (input.choice || looksLikePendingReply(lastUser, pending))) {
+    const resolved = await applyPending(userId, pending, lastUser, input.choice as PendingChoice | undefined);
+    actions.push(...resolved.actions);
+    return {
+      reply: resolved.reply,
+      actions: resolved.actions,
+      conversationId,
+      pendingAction: resolved.pendingAction,
+    };
+  }
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: systemPrompt(context.today) },
+    { role: 'system', content: systemPrompt(context.today, firstName) },
     ...input.messages.map((turn) => ({ role: turn.role, content: turn.content })),
   ];
 
@@ -119,7 +231,7 @@ async function runTurn(
     });
 
     if (completion.toolCalls.length === 0) {
-      return { reply: orFallback(completion.content), actions };
+      return { reply: orFallback(completion.content), actions, conversationId, pendingAction: null };
     }
 
     // The assistant's own turn has to go back verbatim, tool calls included: a
@@ -138,8 +250,19 @@ async function runTurn(
 
       callsMade += 1;
 
-      if (outcome.action) {
+      if (outcome.actions?.length) {
+        actions.push(...outcome.actions);
+      } else if (outcome.action) {
         actions.push(outcome.action);
+      }
+
+      if (outcome.pending) {
+        return {
+          reply: describePending(outcome.pending),
+          actions,
+          conversationId,
+          pendingAction: outcome.pending,
+        };
       }
 
       messages.push({
@@ -150,7 +273,7 @@ async function runTurn(
     }
   }
 
-  return { reply: await forceAnswer(messages), actions };
+  return { reply: await forceAnswer(messages), actions, conversationId, pendingAction: null };
 }
 
 /**
@@ -201,3 +324,57 @@ const FALLBACK_REPLY = "I couldn't put together an answer for that. Try rephrasi
  * retry has already been spent, so the user's best move is to say it differently.
  */
 const REJECTION_MESSAGE = "I couldn't act on that. Try rephrasing it, or say it in smaller steps.";
+
+async function answerAside(messages: ChatRequestInput['messages'], firstName: string, today: string): Promise<string> {
+  const completion = await createCompletion({
+    messages: [
+      {
+        role: 'system',
+        content: `${systemPrompt(today, firstName)}\n\nA photo or PDF draft is open. Answer this side question only. Do not say you logged, changed or imported anything.`,
+      },
+      ...messages.map((turn) => ({ role: turn.role, content: turn.content })),
+    ],
+    model: config.ai.chatModel,
+    temperature: TEMPERATURE,
+    maxTokens: MAX_REPLY_TOKENS,
+    rejectionMessage: REJECTION_MESSAGE,
+  });
+
+  return orFallback(completion.content);
+}
+
+function asPending(value: unknown): PendingAction | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const pending = value as PendingAction;
+  if (!pending.kind || !pending.expiresAt) {
+    return null;
+  }
+
+  if (!Array.isArray(pending.candidates)) {
+    pending.candidates = [];
+  }
+
+  return pending;
+}
+
+function logTurn(
+  conversationId: string,
+  actions: ChatAction[],
+  pending: PendingAction | null,
+  ms: number,
+  status = 'ok',
+) {
+  console.info(
+    JSON.stringify({
+      event: 'chat.turn',
+      conversationId,
+      status,
+      tools: actions.map((action) => action.tool),
+      pending: pending?.kind ?? null,
+      ms,
+    }),
+  );
+}

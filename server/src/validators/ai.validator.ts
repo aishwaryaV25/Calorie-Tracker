@@ -30,4 +30,10 @@ export const chatValidators = [
     .withMessage('today must be a calendar date in YYYY-MM-DD form.')
     .isISO8601({ strict: true })
     .withMessage('today must be a real calendar date.'),
+  body('conversationId').optional().isString().isLength({ min: 1, max: 80 }),
+  body('pendingAction').optional(),
+  body('choice').optional().isObject(),
+  body('choice.entryId').optional().isString().isLength({ min: 1, max: 80 }),
+  body('choice.index').optional().isInt({ min: 1, max: 50 }).toInt(),
+  body('choice.confirm').optional().isBoolean().toBoolean(),
 ];

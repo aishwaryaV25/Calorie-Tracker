@@ -8,26 +8,28 @@ import { formatCalories, formatDateKey, formatGrams, todayKey } from '@/lib/form
 import { Alert, Badge, Button, Card, EmptyState, Pagination, Skeleton } from '@/components/ui';
 import { GoalComposer } from '@/components/goals/GoalComposer';
 import { GoalProgress } from '@/components/goals/GoalProgress';
+import { useDataRevision } from '@/lib/data-sync';
 import type { Goal } from '@/lib/types';
 
 const HISTORY_PAGE_SIZE = 5;
 
 export default function GoalsPage() {
   const today = todayKey();
+  const dataRevision = useDataRevision();
   const [historyPage, setHistoryPage] = useState(1);
   const [revision, setRevision] = useState(0);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const current = useAsync(() => api.goals.current(today), [today, revision]);
+  const current = useAsync(() => api.goals.current(today), [today, revision, dataRevision]);
   const todayTotals = useAsync(
     () => api.entries.list({ from: today, to: today, pageSize: 1 }),
-    [today, revision],
+    [today, revision, dataRevision],
   );
   const history = useAsync(
     () => api.goals.history({ page: historyPage, pageSize: HISTORY_PAGE_SIZE }),
-    [historyPage, revision],
+    [historyPage, revision, dataRevision],
   );
 
   const goal = current.data?.goal ?? null;

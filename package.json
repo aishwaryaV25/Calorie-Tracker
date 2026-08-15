@@ -5,7 +5,6 @@
     "test": "npm test --prefix server",
     "test:unit": "npm run test:unit --prefix server",
     "test:api": "npm run test:api --prefix server",
-    "test:e2e": "npm run test:e2e --prefix web",
-    "test:all": "npm test && npm run test:e2e"
+    "test:e2e": "npm run test:e2e --prefix web"
   }
 }

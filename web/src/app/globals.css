@@ -73,6 +73,12 @@ h3 {
   outline-offset: 2px;
 }
 
+/* The prompt field sits inside its own rounded bar; the global ring would draw a second, sharp box. */
+#chat-message:focus,
+#chat-message:focus-visible {
+  outline: none;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

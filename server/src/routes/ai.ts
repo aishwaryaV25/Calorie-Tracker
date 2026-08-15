@@ -3,7 +3,7 @@ import { asyncHandler } from '../lib/async-handler.js';
 import { badRequest } from '../lib/errors.js';
 import { isAiConfigured } from '../lib/ai-client.js';
 import { authenticate, requireUser } from '../middleware/auth.js';
-import { IMAGE_SIZE_LIMIT_MB, uploadImage } from '../middleware/upload.js';
+import { IMAGE_SIZE_LIMIT_MB, parseChatUpload, uploadImage } from '../middleware/upload.js';
 import { handleValidation, validatedBody } from '../middleware/validate.js';
 import type { ChatRequestInput } from '../types/dto.js';
 import { chatValidators } from '../validators/ai.validator.js';
@@ -46,15 +46,23 @@ aiRouter.post(
 /**
  * One turn of the conversational interface. The whole transcript is sent each
  * time and nothing is stored, so this route holds no session of its own.
+ * An optional photo or PDF is read by the extract / import services and is
+ * never forwarded to the chat model.
  */
 aiRouter.post(
   '/chat',
+  parseChatUpload,
   chatValidators,
   handleValidation,
   asyncHandler(async (req, res) => {
+    const attachment = req.file
+      ? { buffer: req.file.buffer, mimeType: req.file.mimetype }
+      : undefined;
+
     const reply = await chatService.respond(
       requireUser(req).userId,
       validatedBody<ChatRequestInput>(req),
+      attachment,
     );
 
     res.json(reply);

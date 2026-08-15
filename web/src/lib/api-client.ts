@@ -273,8 +273,36 @@ export const api = {
      * API keeps no session, and `today` tells the assistant which day it is where
      * the user is rather than where the server is.
      */
-    chat: (body: { messages: ChatTurn[]; today: string }) =>
-      request<ChatReply>('/ai/chat', { method: 'POST', body }),
+    chat: ({
+      attachment,
+      ...body
+    }: {
+      messages: ChatTurn[];
+      today: string;
+      conversationId?: string;
+      pendingAction?: ChatReply['pendingAction'];
+      choice?: { entryId?: string; index?: number; confirm?: boolean };
+      attachment?: File;
+    }) => {
+      if (!attachment) {
+        return request<ChatReply>('/ai/chat', { method: 'POST', body });
+      }
+
+      const formData = new FormData();
+      formData.append('messages', JSON.stringify(body.messages));
+      formData.append('today', body.today);
+      if (body.conversationId) {
+        formData.append('conversationId', body.conversationId);
+      }
+      if (body.pendingAction) {
+        formData.append('pendingAction', JSON.stringify(body.pendingAction));
+      }
+      if (body.choice) {
+        formData.append('choice', JSON.stringify(body.choice));
+      }
+      formData.append('attachment', attachment);
+      return request<ChatReply>('/ai/chat', { method: 'POST', formData });
+    },
   },
 
   imports: {

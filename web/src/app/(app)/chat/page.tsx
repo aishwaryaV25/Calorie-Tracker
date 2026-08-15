@@ -9,6 +9,8 @@ import { todayKey } from '@/lib/format';
 import { Alert, Button, EmptyState, Skeleton } from '@/components/ui';
 import { ChatComposer } from '@/components/chat/ChatComposer';
 import { ChatThread, type ThreadTurn } from '@/components/chat/ChatThread';
+import { notifyDataChanged } from '@/lib/data-sync';
+import type { ChatPendingAction } from '@/lib/types';
 
 const HISTORY_LIMIT = 12;
 
@@ -23,25 +25,59 @@ export default function ChatPage() {
   const [turns, setTurns] = useState<ThreadTurn[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | undefined>();
+  const [pendingAction, setPendingAction] = useState<ChatPendingAction | null>(null);
 
   const aiStatus = useAsync(() => api.ai.status(), []);
 
   const hasChanges = turns.some((turn) => turn.actions && turn.actions.length > 0);
 
-  async function send(message: string) {
-    const question: ThreadTurn = { id: crypto.randomUUID(), role: 'user', content: message };
+  async function send(
+    message: string,
+    choice?: { entryId?: string; index?: number; confirm?: boolean },
+    file?: File,
+  ) {
+    const content =
+      message.trim() ||
+      (file?.type === 'application/pdf'
+        ? `Uploaded ${file.name}`
+        : file
+          ? `Uploaded a photo (${file.name})`
+          : '');
+
+    if (!content) {
+      return;
+    }
+
+    const question: ThreadTurn = { id: crypto.randomUUID(), role: 'user', content };
     const history = [...turns, question];
     setTurns(history);
     setError(null);
     setIsThinking(true);
 
     try {
-      const { reply, actions } = await api.ai.chat({
-        messages: history.slice(-HISTORY_LIMIT).map(({ role, content }) => ({ role, content })),
+      const result = await api.ai.chat({
+        messages: history.slice(-HISTORY_LIMIT).map(({ role, content: text }) => ({ role, content: text })),
         today: todayKey(),
+        conversationId,
+        pendingAction,
+        choice,
+        attachment: file,
       });
 
-      setTurns([...history, { id: crypto.randomUUID(), role: 'assistant', content: reply, actions }]);
+      setConversationId(result.conversationId);
+      setPendingAction(result.pendingAction ?? null);
+      notifyDataChanged(result.actions);
+      setTurns([
+        ...history,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: result.reply,
+          actions: result.actions,
+          pendingAction: result.pendingAction,
+        },
+      ]);
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -76,8 +112,8 @@ export default function ChatPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Chat support</h1>
           <p className="text-sm text-muted">
-            Your nutrition assistant can log meals, explain trends and make changes with your
-            approval.
+            Your nutrition assistant can log meals, read a photo or PDF, and make changes with
+            your approval. Nothing from this thread is stored.
           </p>
         </div>
         {turns.length > 0 && (
@@ -95,6 +131,8 @@ export default function ChatPage() {
               onClick={() => {
                 setTurns([]);
                 setError(null);
+                setConversationId(undefined);
+                setPendingAction(null);
               }}
             >
               New conversation
@@ -121,8 +159,8 @@ export default function ChatPage() {
               <div>
                 <p className="text-sm font-medium">What did you eat?</p>
                 <p className="mt-1 max-w-md text-xs text-subtle">
-                  Describe it however you like — the assistant works out the calories, saves the
-                  entry and tells you what it assumed.
+                  Describe a meal, or attach a photo or a PDF diary. The assistant drafts what it
+                  sees; you confirm before anything is saved.
                 </p>
               </div>
               <div className="flex flex-wrap justify-center gap-2">
@@ -140,16 +178,25 @@ export default function ChatPage() {
             </div>
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-              <ChatThread turns={turns} isThinking={isThinking} />
+              <ChatThread
+                turns={turns}
+                isThinking={isThinking}
+                onChoose={(entryId) => void send('That one', { entryId })}
+                onConfirm={(confirm) => void send(confirm ? 'Yes' : 'No', { confirm })}
+              />
             </div>
           )}
 
           <div className="flex flex-col gap-2">
             {error && <Alert>{error}</Alert>}
-            <ChatComposer isBusy={isThinking} onSend={send} />
+            <ChatComposer
+              isBusy={isThinking}
+              onSend={(message, file) => void send(message, undefined, file)}
+            />
             <p className="text-xs text-subtle">
-              AI can make changes to your entries and goals only after confirming the action. Check
-              anything that matters on the Entries page.
+              Writes go through the same APIs as the rest of the app. A photo or PDF is drafted
+              first; you confirm before it is logged. Check anything that matters on Today or
+              Entries.
             </p>
           </div>
         </div>

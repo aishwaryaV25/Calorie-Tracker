@@ -210,13 +210,35 @@ export interface ChatTurn {
 /** Something the assistant changed in the diary during a turn. */
 export interface ChatAction {
   tool: string;
+  type?: 'meal_created' | 'meal_updated' | 'meal_deleted' | 'goals_updated';
   label: string;
   entryId?: string;
+}
+
+export interface ChatCandidate {
+  entryId: string;
+  foodName: string;
+  mealType: string;
+  quantity: number;
+  unit: string;
+  calories: number;
+  consumedOn: string;
+}
+
+export interface ChatPendingAction {
+  kind: 'choose_delete' | 'choose_update' | 'confirm_bulk_delete' | 'confirm_extract' | 'review_import';
+  originalRequest: string;
+  candidates: ChatCandidate[];
+  expiresAt: string;
+  extract?: ExtractionResult;
+  importRows?: ImportDraftRow[];
 }
 
 export interface ChatReply {
   reply: string;
   actions: ChatAction[];
+  conversationId?: string;
+  pendingAction?: ChatPendingAction | null;
 }
 
 export interface CreateGoalPayload {

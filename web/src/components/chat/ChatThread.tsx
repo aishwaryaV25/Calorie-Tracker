@@ -2,20 +2,23 @@
 
 import { useEffect, useRef } from 'react';
 import { BrandMark } from '@/components/brand/BrandMark';
-import { cx } from '@/components/ui';
+import { Button, cx } from '@/components/ui';
 import type { ChatAction, ChatTurn } from '@/lib/types';
 
 export interface ThreadTurn extends ChatTurn {
   id: string;
   actions?: ChatAction[];
+  pendingAction?: ChatPendingAction | null;
 }
 
 interface ChatThreadProps {
   turns: ThreadTurn[];
   isThinking: boolean;
+  onChoose?: (entryId: string) => void;
+  onConfirm?: (confirm: boolean) => void;
 }
 
-export function ChatThread({ turns, isThinking }: ChatThreadProps) {
+export function ChatThread({ turns, isThinking, onChoose, onConfirm }: ChatThreadProps) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,16 +44,7 @@ export function ChatThread({ turns, isThinking }: ChatThreadProps) {
               turn.role === 'user' ? 'items-end' : 'items-start',
             )}
           >
-            <div
-              className={cx(
-                'rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap',
-                turn.role === 'user'
-                  ? 'bg-accent-soft text-foreground'
-                  : 'border border-border bg-surface text-foreground',
-              )}
-            >
-              {turn.content}
-            </div>
+            <AssistantOrUserBody turn={turn} />
 
             {turn.actions && turn.actions.length > 0 && (
               <ul className="flex w-full flex-col gap-1.5">
@@ -64,6 +58,54 @@ export function ChatThread({ turns, isThinking }: ChatThreadProps) {
                 ))}
               </ul>
             )}
+
+            {turn.pendingAction && turn.pendingAction.kind === 'confirm_bulk_delete' && onConfirm && (
+              <div className="flex gap-2">
+                <Button className="px-3 py-1.5 text-xs" onClick={() => onConfirm(true)}>
+                  Yes, delete them
+                </Button>
+                <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onConfirm(false)}>
+                  Keep them
+                </Button>
+              </div>
+            )}
+
+            {turn.pendingAction &&
+              (turn.pendingAction.kind === 'confirm_extract' || turn.pendingAction.kind === 'review_import') &&
+              onConfirm && (
+                <div className="flex gap-2">
+                  <Button className="px-3 py-1.5 text-xs" onClick={() => onConfirm(true)}>
+                    {turn.pendingAction.kind === 'review_import' ? 'Log these' : 'Log it'}
+                  </Button>
+                  <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onConfirm(false)}>
+                    Discard
+                  </Button>
+                </div>
+              )}
+
+            {turn.pendingAction &&
+              turn.pendingAction.kind !== 'confirm_bulk_delete' &&
+              turn.pendingAction.kind !== 'confirm_extract' &&
+              turn.pendingAction.kind !== 'review_import' &&
+              onChoose && (
+                <ul className="flex w-full flex-col gap-1.5">
+                  {turn.pendingAction.candidates.map((entry) => (
+                    <li key={entry.entryId}>
+                      <button
+                        type="button"
+                        onClick={() => onChoose(entry.entryId)}
+                        className="w-full rounded-xl border border-border bg-surface-raised px-3 py-2 text-left text-xs hover:border-accent hover:bg-accent-soft"
+                      >
+                        <span className="font-medium capitalize">{entry.mealType}</span>
+                        {' · '}
+                        {entry.foodName}
+                        {' · '}
+                        {Math.round(entry.calories)} kcal
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
           </div>
         </div>
       ))}
@@ -80,4 +122,52 @@ export function ChatThread({ turns, isThinking }: ChatThreadProps) {
       <div ref={endRef} />
     </div>
   );
+}
+
+function AssistantOrUserBody({ turn }: { turn: ThreadTurn }) {
+  if (turn.role === 'user') {
+    return (
+      <div className="rounded-2xl bg-accent-soft px-4 py-3 text-sm whitespace-pre-wrap text-foreground">
+        {turn.content}
+      </div>
+    );
+  }
+
+  const parts = splitDraftTable(turn.content);
+
+  return (
+    <div className="flex w-full flex-col gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-foreground">
+      {parts.before && <p className="whitespace-pre-wrap">{parts.before}</p>}
+      {parts.table && (
+        <pre className="max-w-full overflow-x-auto rounded-xl bg-surface-raised px-3 py-2 font-mono text-[11px] leading-5">
+          {parts.table}
+        </pre>
+      )}
+      {parts.after && <p className="whitespace-pre-wrap">{parts.after}</p>}
+    </div>
+  );
+}
+
+/** Pulls the aligned text table out so it can render in a monospace snapshot, not as an image. */
+function splitDraftTable(content: string): { before: string; table: string | null; after: string } {
+  const lines = content.split('\n');
+  const start = lines.findIndex((line) => line.startsWith('#') && line.includes('Meal') && line.includes('Food'));
+
+  if (start < 0) {
+    return { before: content, table: null, after: '' };
+  }
+
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (lines[index].trim() === '') {
+      end = index;
+      break;
+    }
+  }
+
+  return {
+    before: lines.slice(0, start).join('\n').trim(),
+    table: lines.slice(start, end).join('\n'),
+    after: lines.slice(end).join('\n').trim(),
+  };
 }

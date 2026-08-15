@@ -9,6 +9,10 @@ import type { ToolDefinition } from '../lib/ai-client.js';
 import { addDays, fromDateKey, toDateKey } from '../lib/dates.js';
 import { AppError, badRequest } from '../lib/errors.js';
 import type { CreateEntryInput, UpdateEntryInput } from '../types/dto.js';
+import { createPending, describePending, type PendingAction } from './chatPending.js';
+import { getRemainingNutrition, recommendFoods } from './chatRecommend.js';
+import { loadEntries, resolveAmong, type EntryRef } from './chatResolve.js';
+import type { ChatAction } from './chatTypes.js';
 import * as entriesService from './entriesService.js';
 import * as goalsService from './goalsService.js';
 import * as reportsService from './reportsService.js';
@@ -24,12 +28,7 @@ import * as reportsService from './reportsService.js';
  * through the express-validator chains that guard the HTTP surface.
  */
 
-export interface ChatAction {
-  tool: string;
-  /** One line the UI can show as a record of what changed. */
-  label: string;
-  entryId?: string;
-}
+export type { ChatAction } from './chatTypes.js';
 
 export interface ToolContext {
   userId: string;
@@ -42,6 +41,10 @@ export interface ToolOutcome {
   result: unknown;
   /** Set only when the database changed, which is what the client refreshes on. */
   action?: ChatAction;
+  /** Set when the user must pick a row or confirm a bulk delete. */
+  pending?: PendingAction;
+  /** Bulk writes that produced more than one action. */
+  actions?: ChatAction[];
 }
 
 interface ChatTool {
@@ -159,6 +162,7 @@ const logMealTool: ChatTool = {
       },
       action: {
         tool: 'log_meal',
+        type: 'meal_created',
         label: `Logged ${entry.foodName} — ${Math.round(entry.calories)} kcal, ${entry.mealType} on ${entry.consumedOn}`,
         entryId: entry.id,
       },
@@ -229,12 +233,14 @@ const updateEntryTool: ChatTool = {
     function: {
       name: 'update_entry',
       description:
-        'Correct an entry that already exists. Get its id from find_entries first. Send only the fields that change.',
+        'Correct an entry that already exists. Prefer entryId from find_entries. If the user pointed at a meal by day or name instead, pass those filters and omit entryId — do not guess an id.',
       parameters: {
         type: 'object',
-        required: ['entryId'],
         properties: {
           entryId: { type: 'string' },
+          from: { type: 'string', description: 'First day to search, YYYY-MM-DD.' },
+          to: { type: 'string', description: 'Last day to search, YYYY-MM-DD.' },
+          search: { type: 'string', description: 'Food name to match when entryId is unknown.' },
           foodName: { type: 'string' },
           mealType: { type: 'string', enum: MEAL_TYPES },
           quantity: { type: 'number' },
@@ -249,12 +255,13 @@ const updateEntryTool: ChatTool = {
     },
   },
   async handle(args, context) {
-    const entryId = readString(args, 'entryId');
+    const resolved = await resolveTarget(args, context, 'change');
 
-    if (!entryId) {
-      throw badRequest('entryId is required. Use find_entries to look it up.');
+    if (resolved.pending) {
+      return { result: resolved.result, pending: resolved.pending };
     }
 
+    const entryId = resolved.entryId;
     const consumedOn = readDateKey(args, 'consumedOn');
 
     const changes: UpdateEntryInput = {
@@ -276,6 +283,10 @@ const updateEntryTool: ChatTool = {
       throw badRequest('Provide at least one field to change.');
     }
 
+    if (!entryId) {
+      throw badRequest('entryId is required. Use find_entries to look it up.');
+    }
+
     const entry = await entriesService.updateEntry(context.userId, entryId, changes);
 
     return {
@@ -288,6 +299,7 @@ const updateEntryTool: ChatTool = {
       },
       action: {
         tool: 'update_entry',
+        type: 'meal_updated',
         label: `Updated ${entry.foodName} — ${Math.round(entry.calories)} kcal, ${entry.mealType} on ${entry.consumedOn}`,
         entryId: entry.id,
       },
@@ -300,22 +312,70 @@ const deleteEntryTool: ChatTool = {
     type: 'function',
     function: {
       name: 'delete_entry',
-      description: 'Remove an entry. Get its id from find_entries first, and never guess one.',
+      description:
+        'Remove one entry, or several when deleteAll is true. Prefer filters over guessing an id. If several meals match and deleteAll is false, the app will ask the user which one. deleteAll requires confirmAll on a later turn.',
       parameters: {
         type: 'object',
-        required: ['entryId'],
-        properties: { entryId: { type: 'string' } },
+        properties: {
+          entryId: { type: 'string' },
+          from: { type: 'string', description: 'First day, YYYY-MM-DD.' },
+          to: { type: 'string', description: 'Last day, YYYY-MM-DD.' },
+          mealType: { type: 'string', enum: MEAL_TYPES },
+          search: { type: 'string' },
+          deleteAll: {
+            type: 'boolean',
+            description: 'True only when the user asked to delete every matching meal.',
+          },
+          confirmAll: {
+            type: 'boolean',
+            description: 'True only after the user confirmed a bulk delete.',
+          },
+        },
       },
     },
   },
   async handle(args, context) {
-    const entryId = readString(args, 'entryId');
+    const deleteAll = args.deleteAll === true;
+    const confirmAll = args.confirmAll === true;
+    const resolved = await resolveTarget(args, context, deleteAll ? 'delete_all' : 'remove');
+
+    if (resolved.pending) {
+      return { result: resolved.result, pending: resolved.pending };
+    }
+
+    if (resolved.entries && deleteAll) {
+      if (!confirmAll) {
+        const pending = createPending('confirm_bulk_delete', 'bulk delete', resolved.entries);
+        return {
+          result: { needsConfirmation: true, count: resolved.entries.length, candidates: resolved.entries },
+          pending,
+        };
+      }
+
+      const actions: ChatAction[] = [];
+      for (const row of resolved.entries) {
+        await entriesService.deleteEntry(context.userId, row.entryId);
+        actions.push({
+          tool: 'delete_entry',
+          type: 'meal_deleted',
+          label: `Deleted ${row.foodName} from ${row.consumedOn}`,
+          entryId: row.entryId,
+        });
+      }
+
+      return {
+        result: { deleted: actions.length },
+        action: actions[0],
+        actions,
+      };
+    }
+
+    const entryId = resolved.entryId;
 
     if (!entryId) {
       throw badRequest('entryId is required. Use find_entries to look it up.');
     }
 
-    // Read before deleting so the confirmation can name the food rather than an id.
     const entry = await entriesService.getEntry(context.userId, entryId);
     await entriesService.deleteEntry(context.userId, entryId);
 
@@ -323,6 +383,7 @@ const deleteEntryTool: ChatTool = {
       result: { deleted: true, foodName: entry.foodName, consumedOn: entry.consumedOn },
       action: {
         tool: 'delete_entry',
+        type: 'meal_deleted',
         label: `Deleted ${entry.foodName} from ${entry.consumedOn}`,
         entryId: entry.id,
       },
@@ -366,10 +427,9 @@ const setGoalTool: ChatTool = {
     function: {
       name: 'set_goal',
       description:
-        'Set or change the daily targets. Macros left out are carried over from the current goal, or derived from the calorie target.',
+        'Set or change the daily targets. Send only the fields that change. Missing macros are carried over from the current goal, or derived from the calorie target.',
       parameters: {
         type: 'object',
-        required: ['dailyCalories'],
         properties: {
           dailyCalories: { type: 'number' },
           proteinGrams: { type: 'number' },
@@ -386,14 +446,24 @@ const setGoalTool: ChatTool = {
   },
   async handle(args, context) {
     const dailyCalories = readNumber(args, 'dailyCalories');
+    const current = await goalsService.getGoalForDate(context.userId, fromDateKey(context.today));
+    const effectiveFrom = readDateKey(args, 'effectiveFrom') ?? context.today;
 
-    if (dailyCalories === undefined || dailyCalories <= 0) {
-      throw badRequest('dailyCalories is required and must be greater than zero.');
+    if (
+      dailyCalories === undefined &&
+      readNumber(args, 'proteinGrams') === undefined &&
+      readNumber(args, 'carbGrams') === undefined &&
+      readNumber(args, 'fatGrams') === undefined &&
+      readNumber(args, 'targetWeightKg') === undefined
+    ) {
+      throw badRequest('Provide at least one target to change.');
     }
 
-    const calories = clamp(dailyCalories, 0, LIMITS.dailyCalories);
-    const effectiveFrom = readDateKey(args, 'effectiveFrom') ?? context.today;
-    const current = await goalsService.getGoalForDate(context.userId, fromDateKey(context.today));
+    if ((dailyCalories === undefined || dailyCalories <= 0) && !current) {
+      throw badRequest('dailyCalories is required when no goal exists yet.');
+    }
+
+    const calories = clamp(dailyCalories ?? current?.dailyCalories ?? 0, 0, LIMITS.dailyCalories);
 
     const goal = await goalsService.setGoal(context.userId, {
       dailyCalories: calories,
@@ -411,6 +481,7 @@ const setGoalTool: ChatTool = {
       result: { goal },
       action: {
         tool: 'set_goal',
+        type: 'goals_updated',
         label: `Goal set from ${goal.effectiveFrom} — ${Math.round(goal.dailyCalories)} kcal, ${Math.round(goal.proteinGrams)}g protein, ${Math.round(goal.carbGrams)}g carbs, ${Math.round(goal.fatGrams)}g fat`,
       },
     };
@@ -532,6 +603,48 @@ const getSummaryTool: ChatTool = {
   },
 };
 
+const getRemainingTool: ChatTool = {
+  definition: {
+    type: 'function',
+    function: {
+      name: 'get_remaining',
+      description:
+        'Calories and macros eaten today (or another day) against the goal, plus what is left. Use before saying whether the user is on track or what they should eat next.',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'YYYY-MM-DD. Defaults to today.' },
+        },
+      },
+    },
+  },
+  async handle(args, context) {
+    const date = readDateKey(args, 'date') ?? context.today;
+    return { result: await getRemainingNutrition(context.userId, date) };
+  },
+};
+
+const recommendMealTool: ChatTool = {
+  definition: {
+    type: 'function',
+    function: {
+      name: 'recommend_meal',
+      description:
+        'Suggest foods that fit the remaining calorie and protein budget. Always call get_remaining first, or this tool will compute remaining itself.',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'YYYY-MM-DD. Defaults to today.' },
+        },
+      },
+    },
+  },
+  async handle(args, context) {
+    const date = readDateKey(args, 'date') ?? context.today;
+    return { result: await recommendFoods(context.userId, date) };
+  },
+};
+
 const CHAT_TOOLS: Record<string, ChatTool> = {
   log_meal: logMealTool,
   find_entries: findEntriesTool,
@@ -540,7 +653,76 @@ const CHAT_TOOLS: Record<string, ChatTool> = {
   get_goal: getGoalTool,
   set_goal: setGoalTool,
   get_summary: getSummaryTool,
+  get_remaining: getRemainingTool,
+  recommend_meal: recommendMealTool,
 };
+
+async function resolveTarget(
+  args: Record<string, unknown>,
+  context: ToolContext,
+  verb: 'change' | 'remove' | 'delete_all',
+): Promise<{ entryId?: string; entries?: EntryRef[]; pending?: PendingAction; result?: unknown }> {
+  const entryId = readString(args, 'entryId');
+
+  if (entryId) {
+    return { entryId };
+  }
+
+  const from = readDateKey(args, 'from') ?? context.today;
+  const to = readDateKey(args, 'to') ?? from;
+  const entries = await loadEntries(context.userId, {
+    from,
+    to,
+    mealType: readMealType(args, 'mealType'),
+    search: readString(args, 'search'),
+    calories: readNumber(args, 'calories'),
+  });
+
+  if (verb === 'delete_all') {
+    if (entries.length === 0) {
+      throw badRequest('No meals in that range to delete.');
+    }
+
+    return { entries };
+  }
+
+  const resolved = resolveAmong(entries, {
+    mealType: readMealType(args, 'mealType'),
+    search: readString(args, 'search'),
+    calories: readNumber(args, 'calories'),
+  });
+
+  if (resolved.status === 'none') {
+    throw badRequest('No matching meal was found.');
+  }
+
+  if (resolved.status === 'one') {
+    return { entryId: resolved.entry.entryId };
+  }
+
+  const pending = createPending(
+    verb === 'change' ? 'choose_update' : 'choose_delete',
+    verb,
+    resolved.entries,
+    verb === 'change'
+      ? {
+          foodName: readString(args, 'foodName'),
+          mealType: readMealType(args, 'mealType'),
+          quantity: readNumber(args, 'quantity'),
+          unit: readString(args, 'unit'),
+          calories: readNumber(args, 'calories'),
+          proteinGrams: readNumber(args, 'proteinGrams'),
+          carbGrams: readNumber(args, 'carbGrams'),
+          fatGrams: readNumber(args, 'fatGrams'),
+        }
+      : undefined,
+  );
+
+  return {
+    pending,
+    result: { needsChoice: true, candidates: resolved.entries, prompt: describePending(pending) },
+  };
+}
 
 /** Derived from the same table the handlers live in, so the two cannot drift apart. */
 export const CHAT_TOOL_DEFINITIONS: ToolDefinition[] = Object.values(CHAT_TOOLS).map(

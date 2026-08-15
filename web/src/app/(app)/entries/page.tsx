@@ -15,6 +15,7 @@ import {
 } from '@/components/entries/EntriesFilters';
 import { EntriesTable } from '@/components/entries/EntriesTable';
 import { EntryFormModal } from '@/components/entries/EntryFormModal';
+import { useDataRevision } from '@/lib/data-sync';
 import type { FoodEntry } from '@/lib/types';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -28,6 +29,7 @@ export default function EntriesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
+  const dataRevision = useDataRevision();
 
   // One request when typing stops, rather than one per keystroke.
   const search = useDebouncedValue(filters.search, 300);
@@ -56,6 +58,7 @@ export default function EntriesPage() {
       filters.order,
       search,
       revision,
+      dataRevision,
     ],
   );
 

@@ -17,6 +17,7 @@ import {
   ReportRangePicker,
   type DateRange,
 } from '@/components/reports/ReportRangePicker';
+import { useDataRevision } from '@/lib/data-sync';
 import type { GoalComparison } from '@/lib/types';
 
 /** One page of the daily report is capped at this by the API. */
@@ -37,6 +38,7 @@ function rangeWarning(range: DateRange): string | null {
 }
 
 export default function ReportsPage() {
+  const dataRevision = useDataRevision();
   const [range, setRange] = useState<DateRange>(defaultRange);
   const [microPage, setMicroPage] = useState(1);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -48,16 +50,16 @@ export default function ReportsPage() {
 
   const daily = useAsync(
     () => api.reports.daily({ ...range, pageSize: dailyPageSize }),
-    [range.from, range.to, dailyPageSize],
+    [range.from, range.to, dailyPageSize, dataRevision],
   );
   const weekly = useAsync(
     () => api.reports.weekly({ ...range, pageSize: weeklyPageSize }),
-    [range.from, range.to, weeklyPageSize],
+    [range.from, range.to, weeklyPageSize, dataRevision],
   );
-  const macros = useAsync(() => api.reports.macros({ ...range }), [range.from, range.to]);
+  const macros = useAsync(() => api.reports.macros({ ...range }), [range.from, range.to, dataRevision]);
   const comparison = useAsync(
     () => api.reports.goalComparison({ ...range }),
-    [range.from, range.to],
+    [range.from, range.to, dataRevision],
   );
   const micronutrients = useAsync(
     () =>
@@ -66,7 +68,7 @@ export default function ReportsPage() {
         page: microPage,
         pageSize: MICRONUTRIENTS_PER_PAGE,
       }),
-    [range.from, range.to, microPage],
+    [range.from, range.to, microPage, dataRevision],
   );
 
   function applyRange(next: DateRange) {

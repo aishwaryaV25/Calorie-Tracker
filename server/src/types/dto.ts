@@ -106,4 +106,8 @@ export interface ChatRequestInput {
    * same reason `consumedOn` exists on an entry.
    */
   today?: string;
+  conversationId?: string;
+  /** Echoed back from the previous turn when a choice or confirmation is pending. */
+  pendingAction?: unknown;
+  choice?: { entryId?: string; index?: number; confirm?: boolean };
 }
