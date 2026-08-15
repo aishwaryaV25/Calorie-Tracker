@@ -136,6 +136,15 @@ const geminiBaseUrl = optional(
   'https://generativelanguage.googleapis.com/v1beta',
 ).replace(/\/+$/, '');
 
+/**
+ * Prefer the configured model, then the two Flash IDs that stay up when a
+ * preview (3.x) is slammed. Deduped so a default of 2.5-flash is not tried twice.
+ */
+const geminiFallbacks = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+const geminiModels = [geminiModel, ...geminiFallbacks].filter(
+  (model, index, all) => model.length > 0 && all.indexOf(model) === index,
+);
+
 if (problems.length > 0) {
   throw new ConfigError(problems);
 }
@@ -181,6 +190,7 @@ export const config = {
   gemini: {
     apiKey: geminiApiKey,
     model: geminiModel,
+    models: geminiModels,
     baseUrl: geminiBaseUrl,
     isConfigured: geminiApiKey.length > 0,
   },

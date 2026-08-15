@@ -3,15 +3,14 @@ import type { ChatMessage, CompletionResult, ToolDefinition } from './ai-client.
 import { badRequest, serviceUnavailable } from './errors.js';
 
 /**
- * The Gemini generateContent client.
+ * The Gemini client.
  *
- * Kept in its own file because Gemini does not speak the OpenAI chat-completions
- * shape that Groq (and the rest of the app) uses. Mixing the two would mean
- * every Groq call growing Gemini-only branches, and a missing Gemini key
- * taking photo extraction down with it.
+ * Chat and PDF Deep Analyse share this file. Photos stay on Groq
+ * (`createCompletion`) so a long conversation cannot spend the vision quota.
  */
 
 const REQUEST_TIMEOUT_MS = 60_000;
+const CAPACITY_RETRY_MS = 800;
 
 export const isGeminiConfigured = () => config.gemini.isConfigured;
 
@@ -36,58 +35,61 @@ export interface GeminiRequest {
   rejectionMessage?: string;
 }
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function isCapacityError(status: number, body: string): boolean {
+  return status === 503 || status === 429 || /high demand|UNAVAILABLE|overloaded/i.test(body);
+}
+
 export async function generateGeminiJson(request: GeminiRequest): Promise<string> {
   assertConfigured();
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const last = await tryModels(async (model) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  let response: Response;
-
-  try {
-    response = await fetch(
-      `${config.gemini.baseUrl}/models/${config.gemini.model}:generateContent?key=${encodeURIComponent(config.gemini.apiKey)}`,
-      {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: request.parts }],
-          generationConfig: {
-            temperature: 0,
-            responseMimeType: 'application/json',
-            maxOutputTokens: request.maxTokens ?? 8_192,
-          },
-        }),
-      },
-    );
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw serviceUnavailable('Gemini took too long to read this PDF. Please try again.');
+    try {
+      const response = await fetch(
+        `${config.gemini.baseUrl}/models/${model}:generateContent?key=${encodeURIComponent(config.gemini.apiKey)}`,
+        {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: request.parts }],
+            generationConfig: {
+              temperature: 0,
+              responseMimeType: 'application/json',
+              maxOutputTokens: request.maxTokens ?? 8_192,
+            },
+          }),
+        },
+      );
+      const errorText = response.ok ? '' : await response.text();
+      return { response, errorText };
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw serviceUnavailable('Gemini took too long to read this PDF. Please try again.');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
+  });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Gemini returned ${response.status}: ${errorText}`);
+  if (!last.response.ok) {
+    console.error(`Gemini returned ${last.response.status}: ${last.errorText}`);
 
-    if (response.status === 429) {
-      throw serviceUnavailable('Gemini is rate limited right now. Please try again in a moment.');
-    }
-
-    if (response.status >= 400 && response.status < 500) {
+    if (last.response.status >= 400 && last.response.status < 500) {
       throw badRequest(
         request.rejectionMessage ?? 'Gemini could not read this PDF. It may be corrupt or too large.',
       );
     }
 
-    throw serviceUnavailable('Gemini could not process this request.');
+    throw serviceUnavailable('Gemini could not process this request. Try again in a moment.');
   }
 
-  const payload = (await response.json()) as {
+  const payload = (await last.response.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
   };
 
@@ -103,8 +105,7 @@ export async function generateGeminiJson(request: GeminiRequest): Promise<string
 
 /**
  * Chat completions against Gemini's OpenAI-compatible endpoint. Photos stay on
- * Groq (`createCompletion`); this path is text and tools only, so a busy chat
- * cannot spend the vision quota.
+ * Groq (`createCompletion`); this path is text and tools only.
  */
 export async function createChatCompletion(request: {
   messages: ChatMessage[];
@@ -126,53 +127,50 @@ export async function createChatCompletion(request: {
       ]
     : request.messages;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const last = await tryModels(async (model) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  let response: Response;
-
-  try {
-    response = await fetch(`${config.gemini.baseUrl}/openai/chat/completions`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.gemini.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.gemini.model,
-        messages,
-        temperature: request.temperature ?? 0.5,
-        ...(request.maxTokens ? { max_tokens: request.maxTokens } : {}),
-        ...(request.tools ? { tools: request.tools } : {}),
-        ...(request.jsonSchema ? { response_format: { type: 'json_object' } } : {}),
-      }),
-    });
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw serviceUnavailable('The chat service took too long to respond. Please try again.');
+    try {
+      const response = await fetch(`${config.gemini.baseUrl}/openai/chat/completions`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${config.gemini.apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: request.temperature ?? 0.5,
+          ...(request.maxTokens ? { max_tokens: request.maxTokens } : {}),
+          ...(request.tools ? { tools: request.tools } : {}),
+          ...(request.jsonSchema ? { response_format: { type: 'json_object' } } : {}),
+        }),
+      });
+      const errorText = response.ok ? '' : await response.text();
+      return { response, errorText };
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw serviceUnavailable('The chat service took too long to respond. Please try again.');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
+  });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Gemini chat returned ${response.status}: ${errorText}`);
+  if (!last.response.ok) {
+    console.error(`Gemini chat returned ${last.response.status}: ${last.errorText}`);
 
-    if (response.status === 429) {
-      throw serviceUnavailable('The chat service is rate limited right now. Please try again in a moment.');
-    }
-
-    if (response.status >= 400 && response.status < 500) {
+    if (last.response.status >= 400 && last.response.status < 500) {
       throw badRequest(request.rejectionMessage ?? 'The chat service could not process this request.');
     }
 
-    throw serviceUnavailable('The chat service could not process this request.');
+    throw serviceUnavailable('The chat service is busy. Please try again in a moment.');
   }
 
-  const payload = (await response.json()) as {
+  const payload = (await last.response.json()) as {
     choices?: { message?: { content?: string | null; tool_calls?: CompletionResult['toolCalls'] } }[];
   };
 
@@ -188,4 +186,30 @@ export async function createChatCompletion(request: {
     content,
     toolCalls: message.tool_calls ?? [],
   };
+}
+
+async function tryModels(
+  send: (model: string) => Promise<{ response: Response; errorText: string }>,
+): Promise<{ response: Response; errorText: string }> {
+  let last: { response: Response; errorText: string } | undefined;
+
+  for (const model of config.gemini.models) {
+    last = await send(model);
+
+    if (last.response.ok) {
+      if (model !== config.gemini.model) {
+        console.info(`Gemini used fallback model ${model}`);
+      }
+      return last;
+    }
+
+    if (!isCapacityError(last.response.status, last.errorText)) {
+      return last;
+    }
+
+    console.warn(`Gemini ${model} unavailable (${last.response.status}); trying the next Flash model.`);
+    await delay(CAPACITY_RETRY_MS);
+  }
+
+  return last ?? { response: new Response(null, { status: 503 }), errorText: '' };
 }
