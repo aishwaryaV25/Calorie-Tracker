@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { DateField, Select } from '@/components/ui';
 import { MEAL_LABELS, MEAL_TYPES, type ImportDraftRow, type MealType } from '@/lib/types';
 
@@ -16,7 +17,79 @@ export function ImportDraftList({
   onRemove: (index: number) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgb(17_17_19/0.04)]">
+    <>
+    <ul className="flex flex-col gap-3 lg:hidden">
+      {rows.map((row, index) => (
+        <li
+          key={`${row.foodName}-${index}`}
+          className="rounded-2xl border border-border bg-surface px-4 py-3 shadow-[0_1px_2px_rgb(17_17_19/0.04)]"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <p className="min-w-0 text-sm font-medium">{row.foodName || 'Untitled'}</p>
+            <button
+              type="button"
+              aria-label={`Remove ${row.foodName || 'entry'}`}
+              className="grid size-8 shrink-0 place-items-center rounded-md text-lg leading-none text-subtle hover:bg-surface-raised hover:text-danger"
+              onClick={() => onRemove(index)}
+            >
+              ×
+            </button>
+          </div>
+          <input
+            className={`${CELL} mt-1 px-0`}
+            title={row.foodName}
+            value={row.foodName}
+            onChange={(event) => onChange(index, { foodName: event.target.value })}
+          />
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <DateField
+              quiet
+              value={row.consumedOn}
+              onChange={(consumedOn) => onChange(index, { consumedOn })}
+            />
+            <Select
+              quiet
+              value={row.mealType}
+              onChange={(event) => onChange(index, { mealType: event.target.value as MealType })}
+            >
+              {MEAL_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {MEAL_LABELS[type]}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <MobileField label="Qty">
+              <NumberCell value={row.quantity} onChange={(quantity) => onChange(index, { quantity })} />
+            </MobileField>
+            <MobileField label="Unit">
+              <input
+                className={CELL}
+                value={row.unit}
+                onChange={(event) => onChange(index, { unit: event.target.value })}
+              />
+            </MobileField>
+            <MobileField label="kcal">
+              <NumberCell value={row.calories} onChange={(calories) => onChange(index, { calories })} />
+            </MobileField>
+            <MobileField label="Protein">
+              <NumberCell
+                value={row.proteinGrams}
+                onChange={(proteinGrams) => onChange(index, { proteinGrams })}
+              />
+            </MobileField>
+            <MobileField label="Carbs">
+              <NumberCell value={row.carbGrams} onChange={(carbGrams) => onChange(index, { carbGrams })} />
+            </MobileField>
+            <MobileField label="Fat">
+              <NumberCell value={row.fatGrams} onChange={(fatGrams) => onChange(index, { fatGrams })} />
+            </MobileField>
+          </div>
+        </li>
+      ))}
+    </ul>
+    <div className="hidden overflow-x-auto rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgb(17_17_19/0.04)] lg:block">
       <table className="w-full min-w-[52rem] border-collapse text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs text-subtle">
@@ -115,6 +188,16 @@ export function ImportDraftList({
         </tbody>
       </table>
     </div>
+    </>
+  );
+}
+
+function MobileField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="text-[11px] uppercase tracking-[0.12em] text-subtle">{label}</span>
+      <span className="mt-1 block">{children}</span>
+    </label>
   );
 }
 

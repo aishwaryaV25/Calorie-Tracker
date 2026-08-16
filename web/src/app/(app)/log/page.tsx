@@ -28,7 +28,7 @@ export default function LogMealPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Log a meal</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">What did you eat?</h1>
+          <h1 className="mt-1 text-[1.75rem] font-semibold tracking-tight sm:text-3xl">What did you eat?</h1>
         </div>
         {todayTotals.data && (
           <p className="inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/60 px-3 py-1.5 text-sm text-muted shadow-[0_1px_0_rgb(255_255_255/0.8)] backdrop-blur-md">

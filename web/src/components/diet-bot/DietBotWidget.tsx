@@ -32,16 +32,22 @@ interface ThreadTurn extends ChatTurn {
   id: string;
 }
 
+function isNarrowScreen() {
+  return window.innerWidth < 1024;
+}
+
 function defaultPosition(): Position {
+  const dock = isNarrowScreen() ? 80 : 24;
   return {
     x: Math.max(EDGE, window.innerWidth - BUTTON - 24),
-    y: Math.max(EDGE, window.innerHeight - BUTTON - 24),
+    y: Math.max(EDGE, window.innerHeight - BUTTON - dock),
   };
 }
 
 function clampPosition(pos: Position): Position {
+  const dock = isNarrowScreen() ? 72 : EDGE;
   const maxX = Math.max(EDGE, window.innerWidth - BUTTON - EDGE);
-  const maxY = Math.max(EDGE, window.innerHeight - BUTTON - EDGE);
+  const maxY = Math.max(EDGE, window.innerHeight - BUTTON - dock);
   return {
     x: Math.min(maxX, Math.max(EDGE, pos.x)),
     y: Math.min(maxY, Math.max(EDGE, pos.y)),
@@ -82,6 +88,7 @@ export function DietBotWidget() {
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [available, setAvailable] = useState<boolean | null>(null);
+  const [narrow, setNarrow] = useState(false);
 
   const drag = useRef<{
     pointerId: number;
@@ -95,11 +102,13 @@ export function DietBotWidget() {
   const threadEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setNarrow(isNarrowScreen());
     setPos(readStoredPosition() ?? defaultPosition());
   }, []);
 
   useEffect(() => {
     function onResize() {
+      setNarrow(isNarrowScreen());
       setPos((current) => (current ? clampPosition(current) : current));
     }
 
@@ -243,14 +252,31 @@ export function DietBotWidget() {
   const panelTop = openUp ? pos.y - GAP - panelHeight : pos.y + BUTTON + GAP;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-40">
+    <div className="pointer-events-none fixed inset-0 z-50">
+      {open && narrow && (
+        <button
+          type="button"
+          aria-label="Close Bite"
+          className="pointer-events-auto absolute inset-0 bg-foreground/30 backdrop-blur-[2px]"
+          onClick={() => setOpen(false)}
+        />
+      )}
       {open && (
         <div
           ref={panelRef}
           role="dialog"
           aria-label="Bite, your diet buddy"
-          className="pointer-events-auto absolute flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_16px_40px_rgb(17_17_19/0.16)]"
-          style={{ left: panelLeft, top: panelTop, width: panelWidth, height: panelHeight }}
+          className={cx(
+            'pointer-events-auto flex flex-col overflow-hidden border-border bg-surface',
+            narrow
+              ? 'absolute inset-x-0 bottom-0 max-h-[min(88dvh,calc(100dvh-env(safe-area-inset-bottom)))] rounded-t-3xl border-t shadow-[0_-16px_40px_rgb(17_17_19/0.16)]'
+              : 'absolute rounded-2xl border shadow-[0_16px_40px_rgb(17_17_19/0.16)]',
+          )}
+          style={
+            narrow
+              ? { height: 'min(88dvh, 36rem)' }
+              : { left: panelLeft, top: panelTop, width: panelWidth, height: panelHeight }
+          }
         >
           <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div className="min-w-0">
@@ -350,7 +376,7 @@ export function DietBotWidget() {
             </div>
 
             <form
-              className="border-t border-border p-3"
+              className={cx('border-t border-border p-3', narrow && 'pb-[calc(0.75rem+env(safe-area-inset-bottom))]')}
               onSubmit={(event) => {
                 event.preventDefault();
                 void send(draft);
@@ -401,6 +427,7 @@ export function DietBotWidget() {
         type="button"
         aria-label={open ? 'Close Bite' : 'Open Bite, your diet buddy'}
         aria-expanded={open}
+        hidden={open && narrow}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

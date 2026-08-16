@@ -99,7 +99,7 @@ export default function DashboardPage() {
               <span className="ml-2 text-base font-medium text-subtle">kcal so far</span>
             </p>
           ) : (
-            <p className="mt-2 text-5xl font-semibold tracking-tight tabular-nums">
+            <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl">
               {formatCalories(remaining)}
               <span className="ml-2 text-base font-medium text-subtle">kcal</span>
             </p>

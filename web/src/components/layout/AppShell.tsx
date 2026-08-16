@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { openBite } from '@/lib/open-bite';
 import { BrandMark } from '@/components/brand/BrandMark';
@@ -27,6 +27,13 @@ const TOOLS = [
   { href: '/import', label: 'Bulk import', icon: 'import' as const },
 ];
 
+const MOBILE_TABS = [
+  { href: '/dashboard', label: 'Today', icon: 'today' as const },
+  { href: '/log', label: 'Log', icon: 'log' as const },
+  { href: '/entries', label: 'Entries', icon: 'entries' as const },
+  { href: '/weight', label: 'Weight', icon: 'weight' as const },
+] as const;
+
 function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -39,6 +46,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isLoading, logout } = useAuth();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!moreOpen) {
+      return;
+    }
+
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [moreOpen]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -103,48 +127,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 border-b border-white/50 bg-white/70 backdrop-blur-xl lg:hidden">
-          <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <header className="sticky top-0 z-20 border-b border-white/50 bg-white/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl lg:hidden">
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
             <Link href="/dashboard">
-              <BrandMark size={28} />
+              <BrandMark size={26} />
             </Link>
-            <div className="flex items-center gap-2">
-              <span className="hidden text-sm text-muted sm:inline">{user.displayName}</span>
-              <Button variant="ghost" onClick={logout} className="px-2 py-1">
-                Sign out
-              </Button>
-            </div>
-          </div>
-          <nav
-            className="flex items-center gap-1 overflow-x-auto px-3 pb-3 [scrollbar-width:none]"
-            aria-label="Main"
-          >
             <BiteNavChip />
-            {[...DIARY, ...NUTRITION, ...TOOLS].map((item) => {
-              const isActive = isActivePath(pathname, item.href);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={cx(
-                    'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors',
-                    isActive
-                      ? 'bg-white/80 font-medium text-accent shadow-[0_1px_0_rgb(255_255_255/0.8)]'
-                      : 'text-muted hover:bg-white/50 hover:text-foreground',
-                  )}
-                >
-                  <NavIcon name={item.icon} />
-                  {item.label}
-                  {'isNew' in item && item.isNew ? <NewMark /> : null}
-                </Link>
-              );
-            })}
-          </nav>
+          </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="flex-1 px-4 py-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-6 lg:pb-6">
+          {children}
+        </main>
+
+        <MobileDock
+          pathname={pathname}
+          moreOpen={moreOpen}
+          onToggleMore={() => setMoreOpen((open) => !open)}
+        />
+        {moreOpen && (
+          <MoreSheet
+            pathname={pathname}
+            displayName={user.displayName}
+            onClose={() => setMoreOpen(false)}
+            onLogout={logout}
+          />
+        )}
       </div>
 
       <DietBotWidget />
@@ -208,6 +216,149 @@ function NavItem({
         {isNew ? <NewMark /> : null}
       </span>
     </Link>
+  );
+}
+
+function MobileDock({
+  pathname,
+  moreOpen,
+  onToggleMore,
+}: {
+  pathname: string;
+  moreOpen: boolean;
+  onToggleMore: () => void;
+}) {
+  const moreActive =
+    moreOpen ||
+    [...NUTRITION, ...TOOLS].some(
+      (item) => item.href !== '/weight' && isActivePath(pathname, item.href),
+    );
+
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-white/60 bg-white/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgb(17_17_19/0.06)] backdrop-blur-xl lg:hidden"
+      aria-label="Primary"
+    >
+      <div className="grid grid-cols-5 px-1 pt-1">
+        {MOBILE_TABS.map((item) => {
+          const active = !moreOpen && isActivePath(pathname, item.href);
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? 'page' : undefined}
+              className={cx(
+                'flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-medium tracking-wide',
+                active ? 'text-accent' : 'text-muted',
+              )}
+            >
+              <NavIcon name={item.icon} className="size-[1.15rem]" />
+              {item.label}
+            </Link>
+          );
+        })}
+        <button
+          type="button"
+          aria-expanded={moreOpen}
+          aria-controls="mobile-more"
+          onClick={onToggleMore}
+          className={cx(
+            'flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-medium tracking-wide',
+            moreActive ? 'text-accent' : 'text-muted',
+          )}
+        >
+          <MoreIcon />
+          More
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+function MoreSheet({
+  pathname,
+  displayName,
+  onClose,
+  onLogout,
+}: {
+  pathname: string;
+  displayName: string;
+  onClose: () => void;
+  onLogout: () => void;
+}) {
+  const extras = [...NUTRITION.filter((item) => item.href !== '/weight'), ...TOOLS];
+
+  return (
+    <div className="fixed inset-0 z-40 lg:hidden">
+      <button
+        type="button"
+        aria-label="Close menu"
+        className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div
+        id="mobile-more"
+        className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-white/70 bg-surface px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-16px_40px_rgb(17_17_19/0.12)]"
+      >
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border-strong" />
+        <p className="px-1 text-[11px] uppercase tracking-[0.16em] text-subtle">More</p>
+        <div className="mt-2 grid gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              openBite();
+            }}
+            className="flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium"
+          >
+            <span className="grid size-9 place-items-center rounded-xl bg-accent text-on-accent">
+              <NavIcon name="bite" className="size-4" />
+            </span>
+            <span>
+              Bite
+              <NewMark />
+              <span className="block text-xs font-normal text-subtle">Diet assistant</span>
+            </span>
+          </button>
+          {extras.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActivePath(pathname, item.href) ? 'page' : undefined}
+              className={cx(
+                'flex items-center gap-3 rounded-2xl px-3 py-3 text-sm',
+                isActivePath(pathname, item.href) ? 'bg-accent-soft font-medium text-accent' : 'text-foreground',
+              )}
+            >
+              <span className="grid size-9 place-items-center rounded-xl bg-surface-raised">
+                <NavIcon name={item.icon} />
+              </span>
+              <span>
+                {item.label}
+                {'isNew' in item && item.isNew ? <NewMark /> : null}
+              </span>
+            </Link>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center justify-between rounded-2xl bg-surface-raised px-3 py-3">
+          <p className="truncate text-sm font-medium">{displayName}</p>
+          <Button variant="ghost" className="px-2 py-1 text-xs" onClick={onLogout}>
+            Sign out
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-[1.15rem]" fill="currentColor" aria-hidden>
+      <circle cx="6" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="18" cy="12" r="1.6" />
+    </svg>
   );
 }
 

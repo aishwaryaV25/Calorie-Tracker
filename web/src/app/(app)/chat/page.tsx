@@ -152,8 +152,8 @@ export default function ChatPage() {
         )}
       </header>
 
-      <section className="flex min-h-[68vh] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgb(17_17_19/0.04)]">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+      <section className="flex min-h-[min(68vh,calc(100dvh-14rem))] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgb(17_17_19/0.04)]">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5 sm:py-4">
           <div>
             <p className="text-sm font-semibold">Nutrition assistant</p>
             <p className="text-xs text-subtle">Context-aware · connected to your entries and goals</p>
@@ -164,12 +164,12 @@ export default function ChatPage() {
           </p>
         </header>
 
-        <div className="flex flex-1 flex-col justify-between gap-5 p-5">
+        <div className="flex flex-1 flex-col justify-between gap-4 p-4 sm:gap-5 sm:p-5">
           {turns.length === 0 ? (
             <div className="flex flex-1 flex-col justify-center gap-6">
-              <div className="rounded-2xl bg-foreground px-6 py-7 text-on-accent">
+              <div className="rounded-2xl bg-foreground px-5 py-6 text-on-accent sm:px-6 sm:py-7">
                 <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Ask it</p>
-                <p className="mt-2 text-2xl font-semibold tracking-tight">What did you eat?</p>
+                <p className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">What did you eat?</p>
                 <p className="mt-2 max-w-md text-sm leading-relaxed text-white/65">
                   Describe a meal, or attach a photo or a PDF diary. The assistant drafts what it
                   sees; you confirm before anything is saved.

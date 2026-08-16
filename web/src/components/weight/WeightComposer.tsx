@@ -74,7 +74,7 @@ export function WeightComposer({
             value={kg}
             aria-invalid={Boolean(fieldError('kg')) || undefined}
             onChange={(event) => setKg(event.target.value)}
-            className="w-full min-w-0 border-0 bg-transparent p-0 text-[4.5rem] font-semibold leading-none tracking-tight text-white tabular-nums shadow-none outline-none ring-0 placeholder:text-white/20 focus:outline-none focus:ring-0 sm:text-[6rem]"
+            className="w-full min-w-0 border-0 bg-transparent p-0 text-[3.5rem] font-semibold leading-none tracking-tight text-white tabular-nums shadow-none outline-none ring-0 placeholder:text-white/20 focus:outline-none focus:ring-0 sm:text-[6rem]"
           />
           <span className="mb-2 flex shrink-0 flex-col items-center gap-2">
             <span className="text-sm font-medium text-white/40">kg</span>
@@ -118,7 +118,7 @@ export function WeightComposer({
             className="w-full rounded-md border border-white/20 bg-white/8 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none focus:border-accent"
           />
         </div>
-        <Button type="submit" isLoading={isSubmitting} className="sm:mb-px">
+        <Button type="submit" isLoading={isSubmitting} className="w-full sm:mb-px sm:w-auto">
           Save weigh-in
         </Button>
       </div>

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { AuthProvider } from '@/lib/auth-context';
 import './globals.css';
@@ -10,6 +10,12 @@ export const metadata: Metadata = {
   title: 'Calorie Tracker',
   description: 'Track meals, set nutrition goals and see how your intake trends over time.',
   icons: { icon: '/brand/logo-mark.png' },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

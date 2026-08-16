@@ -41,7 +41,7 @@ export function EntryFormModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/30 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-foreground/30 p-0 backdrop-blur-sm sm:items-start sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label={entry ? 'Edit entry' : 'Add entry'}
@@ -53,7 +53,7 @@ export function EntryFormModal({
         }
       }}
     >
-      <div className="my-8 w-full max-w-lg rounded-xl border border-border bg-surface p-6 shadow-[0_16px_48px_rgb(17_17_19/0.14)]">
+      <div className="w-full max-w-lg rounded-t-3xl border border-border bg-surface p-5 shadow-[0_16px_48px_rgb(17_17_19/0.14)] sm:my-8 sm:rounded-xl sm:p-6">
         <header className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">{entry ? 'Edit entry' : 'Add entry'}</h2>
           <Button type="button" variant="ghost" onClick={onClose} className="px-2 py-1">

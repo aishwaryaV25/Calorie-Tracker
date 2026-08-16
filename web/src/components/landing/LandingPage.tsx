@@ -64,6 +64,16 @@ export function LandingPage() {
             </Link>
           </div>
         </div>
+        <nav
+          className="flex gap-4 overflow-x-auto px-4 pb-3 text-sm text-muted [scrollbar-width:none] md:hidden"
+          aria-label="Marketing"
+        >
+          {NAV.map((item) => (
+            <a key={item.href} href={item.href} className="shrink-0 hover:text-foreground">
+              {item.label}
+            </a>
+          ))}
+        </nav>
       </header>
 
       <main>
@@ -73,7 +83,7 @@ export function LandingPage() {
               <span className="size-1.5 rounded-full bg-accent" />
               A diary for what you actually ate
             </p>
-            <h1 className="mt-6 text-5xl font-semibold leading-[1.04] tracking-tight sm:text-6xl lg:text-7xl">
+            <h1 className="mt-6 text-[2.65rem] font-semibold leading-[1.04] tracking-tight sm:text-6xl lg:text-7xl">
               Eat smart.
               <br />
               <span className="text-accent">Live better.</span>

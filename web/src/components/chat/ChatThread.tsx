@@ -42,7 +42,7 @@ export function ChatThread({ turns, isThinking, onChoose, onConfirm }: ChatThrea
 
           <div
             className={cx(
-              'flex max-w-[46rem] flex-col gap-2',
+              'flex min-w-0 max-w-full flex-col gap-2 sm:max-w-[46rem]',
               turn.role === 'user' ? 'items-end' : 'items-start',
             )}
           >

@@ -78,7 +78,7 @@ export default function WeightPage() {
             Ask Bite about gym workouts, weight management and more.
           </button>
         </div>
-        <Button variant="secondary" onClick={openBite}>
+        <Button variant="secondary" onClick={openBite} className="hidden sm:inline-flex">
           Ask Bite
         </Button>
       </header>
