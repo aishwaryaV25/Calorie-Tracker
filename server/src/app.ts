@@ -6,6 +6,23 @@ import { config } from './config.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { apiRouter } from './routes/index.js';
 
+function isAllowedOrigin(origin: string): boolean {
+  if (config.corsOrigins.includes(origin) || config.corsOrigins.includes('*')) {
+    return true;
+  }
+
+  try {
+    const { hostname } = new URL(origin);
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.endsWith('.vercel.app')
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function createApp() {
   const app = express();
 
@@ -15,8 +32,25 @@ export function createApp() {
     app.set('trust proxy', 1);
   }
 
-  app.use(helmet());
-  app.use(cors({ origin: config.corsOrigins, credentials: true }));
+  // same-origin CORP would hide every response from the Vercel app, which the
+  // browser then reports as a network failure ("Could not reach the server").
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || isAllowedOrigin(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(null, false);
+      },
+      credentials: true,
+    }),
+  );
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
 

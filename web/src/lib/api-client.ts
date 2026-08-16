@@ -23,8 +23,34 @@ import type {
   WeeklyReportRow,
 } from './types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+const CONFIGURED_API_URL = (process.env.NEXT_PUBLIC_API_URL ?? '').trim().replace(/\/+$/, '');
 const TOKEN_STORAGE_KEY = 'calorie-tracker.token';
+const NETWORK_ERROR =
+  'Could not reach the API. On the live site the server may be waking up — wait a minute and try again.';
+
+/**
+ * Local dev talks to :4000. A Vercel build that still has localhost baked in
+ * would fail in the visitor's browser, so that case falls back to same-origin
+ * `/api` (rewritten to Render by next.config).
+ */
+function apiBase(): string {
+  const configured = CONFIGURED_API_URL;
+  const fallback = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:4000/api';
+  const raw = configured || fallback;
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    const onLoopback = host === 'localhost' || host === '127.0.0.1';
+    if (!onLoopback && /localhost|127\.0\.0\.1/.test(raw)) {
+      return `${window.location.origin}/api`;
+    }
+    if (raw.startsWith('/')) {
+      return `${window.location.origin}${raw}`;
+    }
+  }
+
+  return raw;
+}
 
 /**
  * Error carrying the API's structured response, so forms can show messages next
@@ -68,7 +94,11 @@ type QueryValue = string | number | boolean | undefined | null;
 type QueryParams = Record<string, QueryValue>;
 
 function buildUrl(path: string, query?: QueryParams): string {
-  const url = new URL(`${API_BASE_URL}${path}`);
+  const root = apiBase();
+  const url = new URL(
+    `${root}${path}`,
+    typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
+  );
 
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value !== undefined && value !== null && value !== '') {
@@ -110,7 +140,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   } catch {
     // A network-level failure has no HTTP status; the most likely cause in
     // development is the API not running, so say that rather than "failed to fetch".
-    throw new ApiError(0, 'NETWORK_ERROR', 'Could not reach the server. Is the API running?');
+    throw new ApiError(0, 'NETWORK_ERROR', NETWORK_ERROR);
   }
 
   if (response.status === 204) {
@@ -162,7 +192,7 @@ async function requestFile(
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   } catch {
-    throw new ApiError(0, 'NETWORK_ERROR', 'Could not reach the server. Is the API running?');
+    throw new ApiError(0, 'NETWORK_ERROR', NETWORK_ERROR);
   }
 
   if (!response.ok) {

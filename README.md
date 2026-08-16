@@ -128,12 +128,27 @@ The first deploy can use `CORS_ORIGIN=http://localhost:3000` so the service boot
 1. [Vercel](https://vercel.com) → **Add New** → **Project** → this repo.
 2. **Root Directory**: `web`.
 3. Framework: Next.js (detected).
-4. Environment variable:
+4. Environment variables (Production **and** Preview):
 
 | Name | Value |
 | --- | --- |
 | `NEXT_PUBLIC_API_URL` | `https://<your-render-service>.onrender.com/api` |
+| `API_UPSTREAM` | `https://<your-render-service>.onrender.com` |
 
-5. Deploy. Then set `CORS_ORIGIN` on Render to the Vercel origin (`https://….vercel.app`, no trailing slash, no `/api`) and restart the API.
+`NEXT_PUBLIC_*` is baked in at **build** time. After you add or change it, trigger a Redeploy — saving the variable alone is not enough.
+
+5. Deploy. Then set `CORS_ORIGIN` on Render to the Vercel **production** origin (`https://….vercel.app`, no trailing slash, no `/api`) and restart the API. Preview URLs on `*.vercel.app` are allowed once that origin is set.
+
+### 3. Share the app, not Vercel
+
+Visitors sign in to **this app**. They should never see a Vercel login.
+
+- Send the **production** URL: `https://<project>.vercel.app` (or your custom domain).
+- Do not send `vercel.com/…` dashboard links, or a deployment URL that says “Sign in to Vercel”.
+- In Vercel → **Project → Settings → Deployment Protection**:
+  - **Standard Protection**: off for Production (or “Only Preview Deployments”).
+  - **Vercel Authentication**: disabled for Production.
+
+If a friend is asked to sign in with Vercel, the link is protected. Turn that off and resend the production URL.
 
 Open the Vercel URL, sign up, and log a meal. The first API call after idle may take ~30–60 seconds while Render wakes up.
