@@ -4,6 +4,8 @@ Demo: [https://youtu.be/ZUAhar1ciLc](https://youtu.be/ZUAhar1ciLc)
 
 Live: [https://calorie-tracker-ochre-eight.vercel.app](https://calorie-tracker-ochre-eight.vercel.app)
 
+
+
 Log meals, set calorie and macro goals, track weight, and read reports. The Next.js app talks to the Express API only. Data lives in Neon Postgres.
 
 The first load after idle can take about a minute while the API wakes up.
@@ -21,6 +23,7 @@ The first load after idle can take about a minute while the API wakes up.
 - **Reports** — Daily and weekly totals, macro and micro breakdowns, goal vs actual, and a downloadable PDF.
 - **Chat Support** — The write agent. Log or change meals, attach a photo or PDF, set a goal, or ask for a report in ordinary words.
 - **Bite** — The diet / gym buddy. It can see today. It does not write a row.
+- **Styling** - Typeface Themed UI (Red, white & black).
 
 ## Architecture
 
