@@ -64,12 +64,10 @@ From the repo root:
 
 ```bash
 npm test          # unit tests + API regression — this is the PR gate
-npm run test:e2e  # local Playwright walkthrough (not run in CI)
 ```
 
 `npm test` is what GitHub Actions runs on every push and pull request. It covers dates, pagination, nutrition, AI sanitising, PDF parsing, and HTTP CRUD against Postgres (`DATABASE_URL` in `server/.env`, or the CI Postgres service).
 
-Playwright (`web/e2e`) is a local UI check only. It is not part of the production test gate.
 
 ## What is implemented
 
