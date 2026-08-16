@@ -1,15 +1,5 @@
 import { MEAL_TYPES, type MealType } from '../domain/nutrition.js';
 
-/**
- * Heuristic mapping of extracted PDF text onto food-diary rows.
- *
- * A PDF of a food diary can look like almost anything: pipe tables, CSV, a
- * spreadsheet dump with renamed columns, or a list with the numbers trailing
- * the name. This module tries the shapes we actually see, scores each attempt,
- * and returns the best one. It will miss unusual layouts — that is the point
- * of the Gemini fallback, not a failure of this script.
- */
-
 export const MAX_IMPORT_ROWS = 200;
 
 export type ImportField =
@@ -85,7 +75,6 @@ const FIELD_ALIASES: Record<ImportField, string[]> = {
   unit: ['unit', 'measure', 'uom'],
 };
 
-/** Single-letter headers only count when the cell is exactly that letter. */
 const SHORT_ALIASES: Record<string, ImportField> = {
   p: 'proteinGrams',
   c: 'carbGrams',
@@ -153,13 +142,6 @@ interface TokenLine {
   cells: string[];
 }
 
-/**
- * Turns a blob of extracted PDF text into draft diary rows.
- *
- * `today` is the caller's calendar day. Dates the PDF does not mention, and
- * relative words like "yesterday", are resolved against it rather than the
- * server's UTC clock.
- */
 export function parseDiaryText(text: string, today: string): ScriptParseResult {
   const lines = tokenise(text);
   const attempts: ParseAttempt[] = [];
@@ -224,11 +206,6 @@ function tokenise(text: string): TokenLine[] {
     .filter((line) => line.cells.length > 0 && !isNoise(line.raw));
 }
 
-/**
- * Split a line the way a table dump usually arrives: pipes first, then tabs,
- * then CSV, then runs of spaces. A single-space sentence is left as one cell
- * so the trailing-numbers pass can still pull figures off the end.
- */
 function splitCells(line: string): string[] {
   if (line.includes('|')) {
     return line.split('|').map(cleanCell).filter(Boolean);
@@ -238,9 +215,6 @@ function splitCells(line: string): string[] {
     return line.split('\t').map(cleanCell).filter(Boolean);
   }
 
-  // Three or more commas is a CSV row even when the header has no numbers —
-  // "Date,Food,kcal,P,C,F" would otherwise stay one cell and the date column
-  // would never be seen.
   const commas = line.split(',').map(cleanCell);
   if (commas.length >= 3) {
     return commas.filter(Boolean);
@@ -344,10 +318,6 @@ interface PositionalSchema {
   fields: ImportField[];
 }
 
-/**
- * The layouts a diary export most often has when the header is missing or
- * unreadable. Tried in this order; scoring, not order, decides the winner.
- */
 const POSITIONAL_SCHEMAS: PositionalSchema[] = [
   {
     name: 'meal | name | calories | protein | carbs | fat',
@@ -411,10 +381,6 @@ function tryPositional(lines: TokenLine[], schema: PositionalSchema, today: stri
   };
 }
 
-/**
- * "Porridge with berries 420 12 68 9" — a name, then one to four trailing
- * numbers. Common when a PDF's table collapsed to a single wrapped line.
- */
 function tryTrailingNumbers(lines: TokenLine[], today: string): ParseAttempt {
   const rows: ImportDraftRow[] = [];
 
@@ -491,8 +457,6 @@ function assignTrailing(numbers: number[]): [number | undefined, number, number,
     return [numbers[1], numbers[2] ?? 0, numbers[3] ?? 0, numbers[4] ?? 0];
   }
 
-  // Two or three trailing numbers: treat the first as calories and ignore the rest
-  // rather than guess which macro they belong to.
   return [numbers[0], 0, 0, 0];
 }
 
@@ -587,8 +551,7 @@ function scoreRows(rows: ImportDraftRow[], today?: string): number {
     if (row.calories > 0 && row.calories < 20_000) points += 3;
     if (row.proteinGrams + row.carbGrams + row.fatGrams > 0) points += 2;
     if (row.mealType) points += 1;
-    // A date that came from the PDF, not the default, is a strong signal the
-    // schema put the columns in the right place.
+
     if (today && row.consumedOn !== today) points += 2;
     if (row.calories === 0) points -= 1;
     return score + points;

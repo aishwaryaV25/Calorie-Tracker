@@ -1,32 +1,21 @@
 @import "tailwindcss";
 
-/**
- * Palette sampled from the reference screenshot rather than chosen by eye.
- * The five values marked "sampled" are the literal pixel colours; the rest are
- * derived from them (a tint or shade) so the whole scale stays in the same
- * family instead of introducing unrelated hues.
- */
 :root {
-  --background: #f2f2f4; /* sampled: light section panel */
-  --surface: #ffffff; /* sampled: page white */
-  --surface-raised: #f2f2f4; /* sampled: inset chips on white cards */
-  --border: #e4e4e8; /* derived: shade of the panel colour */
-  --border-strong: #d3d3d9; /* derived */
+  --background: #f2f2f4;
+  --surface: #ffffff;
+  --surface-raised: #f2f2f4;
+  --border: #e4e4e8;
+  --border-strong: #d3d3d9;
 
-  --foreground: #111113; /* sampled: headings and dark banner */
-  --muted: #3e3e3e; /* sampled: body paragraph grey */
-  --subtle: #8a8a8f; /* derived: hints and placeholders */
+  --foreground: #111113;
+  --muted: #3e3e3e;
+  --subtle: #8a8a8f;
 
-  --accent: #ff223f; /* sampled: brand red */
-  --accent-hover: #e01e37; /* derived: red at 88% brightness */
-  --accent-soft: #ffe8ec; /* derived: red tinted to a background wash */
+  --accent: #ff223f;
+  --accent-hover: #e01e37;
+  --accent-soft: #ffe8ec;
   --on-accent: #ffffff;
 
-  /**
-   * Charts stay inside the black-and-red theme rather than adding new hues:
-   * ink, red and a mid grey are distinguishable from each other and read as one
-   * palette next to the rest of the UI.
-   */
   --protein: #111113;
   --carbs: #ff223f;
   --fat: #8a8a8f;
@@ -76,7 +65,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Headings are tight and dark, matching the reference's editorial feel. */
 h1,
 h2,
 h3 {
@@ -88,7 +76,6 @@ h3 {
   outline-offset: 2px;
 }
 
-/* The prompt field sits inside its own rounded bar; the global ring would draw a second, sharp box. */
 #chat-message:focus,
 #chat-message:focus-visible,
 #diet-bot-message:focus,
@@ -98,8 +85,6 @@ h3 {
   outline: none;
 }
 
-/* The kilos field is the scale display. Native steppers and the number
-   spinner gutter draw a box around the figure; hide them and step in UI. */
 #weightKg {
   appearance: textfield;
   -moz-appearance: textfield;

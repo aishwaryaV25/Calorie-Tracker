@@ -13,7 +13,6 @@ import { prisma } from '../lib/prisma.js';
 import type { ReportRangeQuery } from '../types/dto.js';
 import { getGoalsCovering, type GoalDto } from './goalsService.js';
 
-/** Guards against a request that would aggregate an unbounded amount of data. */
 const MAX_RANGE_DAYS = 366;
 const DEFAULT_RANGE_DAYS = 30;
 
@@ -30,7 +29,7 @@ export interface DailyTotals extends MacroTotals {
 }
 
 export interface DailyReportRow extends DailyTotals {
-  /** Targets that were in force on this specific day, if any were set. */
+
   goal: { dailyCalories: number } & MacroTotals | null;
   caloriesRemaining: number | null;
 }
@@ -50,16 +49,10 @@ export interface ResolvedRange {
   days: number;
 }
 
-/**
- * Applies the default window and rejects ranges too large to aggregate. Dates are
- * normalised to whole UTC days so a caller passing a timestamp still gets a
- * sensible bucket.
- */
 export function resolveRange(query: ReportRangeQuery): ResolvedRange {
   let to = startOfUtcDay(query.to ?? new Date());
   let from = startOfUtcDay(query.from ?? addDays(to, -(DEFAULT_RANGE_DAYS - 1)));
 
-  // Either order is accepted; the window is always earlier → later.
   if (from > to) {
     const swap = from;
     from = to;
@@ -75,13 +68,6 @@ export function resolveRange(query: ReportRangeQuery): ResolvedRange {
   return { from, to, days };
 }
 
-/**
- * Per-day totals straight from the database.
- *
- * Grouping on the denormalised `consumedOn` column means the database does the
- * aggregation with an index, and the query contains no dialect-specific date
- * functions. Days with no entries are absent here and filled in by the caller.
- */
 async function sumByDay(userId: string, from: Date, to: Date) {
   const grouped = await prisma.foodEntry.groupBy({
     by: ['consumedOn'],
@@ -104,7 +90,6 @@ async function sumByDay(userId: string, from: Date, to: Date) {
   );
 }
 
-/** Zero-filled totals for every day in the range, oldest first. */
 async function buildDailyTotals(userId: string, from: Date, to: Date): Promise<DailyTotals[]> {
   const totals = await sumByDay(userId, from, to);
 
@@ -123,18 +108,10 @@ async function buildDailyTotals(userId: string, from: Date, to: Date): Promise<D
   });
 }
 
-/**
- * Picks the goal version in force on a given day from a list ordered newest
- * first, so a whole range can be attributed without a query per day.
- */
 function goalForDay(goals: GoalDto[], dateKey: string): GoalDto | null {
   return goals.find((goal) => goal.effectiveFrom <= dateKey) ?? null;
 }
 
-/**
- * Daily calorie and macro totals with the goal that applied on each day.
- * Drives the calorie trend line and the macro-by-day chart.
- */
 export async function getDailyReport(
   userId: string,
   query: ReportRangeQuery,
@@ -162,7 +139,6 @@ export async function getDailyReport(
     };
   });
 
-  // Newest first: a user opening a report cares about recent days.
   const ordered = [...rows].reverse();
   const start = (query.page - 1) * query.pageSize;
 
@@ -172,11 +148,6 @@ export async function getDailyReport(
   };
 }
 
-/**
- * Weekly rollups. Buckets are built in application code from the daily totals
- * because ISO week numbering differs between database engines, and the number of
- * days involved is small and already bounded.
- */
 export async function getWeeklyReport(
   userId: string,
   query: ReportRangeQuery,
@@ -219,8 +190,7 @@ export async function getWeeklyReport(
       proteinGrams: round(bucket.proteinGrams),
       carbGrams: round(bucket.carbGrams),
       fatGrams: round(bucket.fatGrams),
-      // Averaged over days actually logged, so a partial week is not misread as
-      // a week of under-eating.
+
       averageDailyCalories: bucket.daysLogged > 0 ? round(bucket.calories / bucket.daysLogged) : 0,
     }))
     .sort((a, b) => b.weekStart.localeCompare(a.weekStart));
@@ -241,11 +211,6 @@ export interface MicronutrientRow {
   unit: string;
 }
 
-/**
- * Totals for each vitamin and mineral over the range. Grouping happens in the
- * database against the nutrient rows, filtered through the relation so the scope
- * stays tied to the user.
- */
 export async function getMicronutrientReport(
   userId: string,
   query: ReportRangeQuery,
@@ -286,16 +251,11 @@ export interface GoalComparison {
   daysLogged: number;
   actual: { calories: number; averageDailyCalories: number } & MacroTotals;
   target: { calories: number; averageDailyCalories: number } & MacroTotals;
-  /** Actual as a percentage of target; null when no goal covers the range. */
+
   adherence: { calories: number; proteinGrams: number; carbGrams: number; fatGrams: number } | null;
   hasGoal: boolean;
 }
 
-/**
- * Goal versus actual across the range. Targets are accumulated per day using the
- * goal in force on that day, so a mid-range change in targets is reflected
- * correctly rather than applying today's numbers retroactively.
- */
 export async function getGoalComparison(
   userId: string,
   query: ReportRangeQuery,
@@ -366,15 +326,10 @@ export async function getGoalComparison(
 
 export interface MacroBreakdown {
   grams: MacroTotals;
-  /** Share of total energy from each macro, which is what a pie chart needs. */
+
   caloriePercentage: MacroTotals;
 }
 
-/**
- * Macro split for the range, expressed both in grams and as a share of energy.
- * Percentages use the 4/4/9 kcal-per-gram convention rather than logged calories
- * so the three slices always add up to 100.
- */
 export async function getMacroBreakdown(
   userId: string,
   query: ReportRangeQuery,
@@ -409,16 +364,13 @@ export async function getMacroBreakdown(
     caloriePercentage: {
       proteinGrams: proteinShare,
       carbGrams: carbShare,
-      // Derived from the other two rather than rounded independently, otherwise
-      // three rounded values can total 100.01 and a pie chart shows a sliver of
-      // overflow.
+
       fatGrams: totalEnergy === 0 ? 0 : round(100 - proteinShare - carbShare),
     },
     range: { from: toDateKey(from), to: toDateKey(to) },
   };
 }
 
-/** Nutrition values are noisy enough that two decimals is plenty. */
 function round(value: number): number {
   return Math.round(value * 100) / 100;
 }

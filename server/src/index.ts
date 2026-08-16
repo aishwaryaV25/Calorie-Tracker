@@ -14,7 +14,6 @@ const server = app.listen(config.port, '0.0.0.0', () => {
   }
 });
 
-/** Finish in-flight requests and release the database pool before exiting. */
 async function shutdown(signal: string) {
   console.log(`\n${signal} received, shutting down.`);
 

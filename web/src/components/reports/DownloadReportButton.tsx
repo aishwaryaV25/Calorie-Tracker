@@ -5,12 +5,6 @@ import { api } from '@/lib/api-client';
 import { Button } from '@/components/ui';
 import { queryRange, type DateRange } from './ReportRangePicker';
 
-/**
- * Builds the PDF report for a range and hands it to the browser to save.
- *
- * The document is composed by the API from the same figures the charts use, so
- * there is nothing to assemble here beyond the request and the save.
- */
 export function DownloadReportButton({
   range,
   isDisabled = false,
@@ -18,7 +12,7 @@ export function DownloadReportButton({
 }: {
   range: DateRange;
   isDisabled?: boolean;
-  /** Reported upwards so the failure appears in the page's one banner. */
+
   onError: (message: string | null) => void;
 }) {
   const [isBuilding, setIsBuilding] = useState(false);
@@ -32,8 +26,6 @@ export function DownloadReportButton({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
 
-      // A click on a real anchor is what gets the file past the popup blocker
-      // and saved under the name the API chose.
       link.href = url;
       link.download = filename;
       link.click();

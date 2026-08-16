@@ -17,13 +17,6 @@ export const goalsRouter = Router();
 
 goalsRouter.use(authenticate);
 
-/**
- * The targets in force on a given day, or null if none were set by then.
- *
- * The client passes its own date, because "today" is a question the server cannot
- * answer: a goal saved at 04:00 in Delhi is dated tomorrow in UTC, and a server
- * deciding for itself would report no goal to the user who had just set one.
- */
 goalsRouter.get(
   '/current',
   currentGoalValidators,
@@ -65,7 +58,6 @@ goalsRouter.post(
     res.status(201).json(goal);
   }),
 );
-
 
 goalsRouter.delete(
   '/:id',

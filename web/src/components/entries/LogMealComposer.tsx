@@ -56,11 +56,6 @@ const toNumber = (value: string) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-/**
- * One diary row per meal. The assignment fields live on that meal. Detected
- * plate items are shown on the side so the estimate can be judged; they are
- * not saved as their own entries.
- */
 export function LogMealComposer({ isAiAvailable, onSaved }: LogMealComposerProps) {
   const fileInputId = useId();
 

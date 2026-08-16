@@ -67,10 +67,6 @@ export async function loadEntries(
   return data.map(toEntryRef);
 }
 
-/**
- * Picks a single diary row from a list using what the user said. One safe match
- * is returned; several plausible matches stay as a list for the user to choose.
- */
 export function resolveAmong(entries: EntryRef[], hint: ResolveHint): ResolveResult {
   if (entries.length === 0) {
     return { status: 'none' };

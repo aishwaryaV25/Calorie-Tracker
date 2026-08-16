@@ -1,10 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui';
 
-/**
- * Bite is the extra product — a read-only diet buddy. Chat Support writes
- * the diary; this one only reads today and answers.
- */
 export function BiteFeature() {
   return (
     <section id="bite" className="border-t border-border bg-foreground px-4 py-16 text-on-accent sm:px-8 lg:px-12 lg:py-20">

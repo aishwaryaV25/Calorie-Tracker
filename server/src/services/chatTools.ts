@@ -20,35 +20,24 @@ import * as goalsService from './goalsService.js';
 import * as reportsService from './reportsService.js';
 import * as weightsService from './weightsService.js';
 
-/**
- * The actions the assistant can take on the user's behalf.
- *
- * Every tool is a thin adapter over the same service a route calls, so a meal
- * logged by chat goes through identical ownership checks and day-bucketing rules
- * as one logged through the form. Two things are deliberately not negotiable by
- * the model: `userId`, which comes from the authenticated request, and the
- * numeric bounds below, since arguments arrive as free-form JSON and never pass
- * through the express-validator chains that guard the HTTP surface.
- */
-
 export type { ChatAction } from './chatTypes.js';
 
 export interface ToolContext {
   userId: string;
-  /** The user's own calendar day, which anchors "today" and "yesterday". */
+
   today: string;
 }
 
 export interface ToolOutcome {
-  /** Serialised straight back to the model as the tool's result. */
+
   result: unknown;
-  /** Set only when the database changed, which is what the client refreshes on. */
+
   action?: ChatAction;
-  /** Set when the user must pick a row or confirm a bulk delete. */
+
   pending?: PendingAction;
-  /** Bulk writes that produced more than one action. */
+
   actions?: ChatAction[];
-  /** A file the client should save. Never sent back to the model. */
+
   download?: { filename: string; buffer: Buffer };
 }
 
@@ -57,15 +46,8 @@ interface ChatTool {
   handle: (args: Record<string, unknown>, context: ToolContext) => Promise<ToolOutcome>;
 }
 
-/**
- * The bounds the express-validator chains enforce on the HTTP surface.
- *
- * Repeated here because tool arguments never pass through those chains: they
- * arrive as free-form JSON from the model. Holding them to the same range keeps a
- * meal logged by chat exactly as trustworthy as one logged through the form.
- */
 const LIMITS = {
-  /** Calories and macro grams on an entry. */
+
   amount: 100_000,
   quantity: 10_000,
   dailyCalories: 20_000,
@@ -76,7 +58,7 @@ const LIMITS = {
 const MAX_MICRONUTRIENTS = 8;
 const DEFAULT_ENTRY_RESULTS = 10;
 const MAX_ENTRY_RESULTS = 20;
-/** A month of daily rows is enough context for any question worth asking. */
+
 const MAX_DAILY_ROWS = 31;
 const MAX_WEEKLY_ROWS = 8;
 const MAX_MICRONUTRIENT_ROWS = 30;
@@ -143,7 +125,7 @@ const logMealTool: ChatTool = {
     const input: CreateEntryInput = {
       foodName: foodName.slice(0, 160),
       mealType,
-      // Zero is not a portion, so an absent or nonsensical quantity becomes one.
+
       quantity: clamp(readNumber(args, 'quantity'), 1, LIMITS.quantity) || 1,
       unit: (readString(args, 'unit') ?? 'serving').slice(0, 24),
       calories: clampAmount(calories, 0),
@@ -211,8 +193,7 @@ const findEntriesTool: ChatTool = {
     });
 
     return {
-      // Trimmed to the fields an answer needs: the full DTO would spend tokens
-      // on timestamps and micronutrients that no reply ever quotes.
+
       result: {
         range: { from, to },
         matched: meta.totalItems,
@@ -279,8 +260,7 @@ const updateEntryTool: ChatTool = {
       ...optional('carbGrams', amountOrUndefined(readNumber(args, 'carbGrams'))),
       ...optional('fatGrams', amountOrUndefined(readNumber(args, 'fatGrams'))),
       ...optional('consumedOn', consumedOn),
-      // Moving an entry to another day moves its timestamp too, so it keeps its
-      // place in a list ordered by when it was eaten.
+
       ...optional('consumedAt', consumedOn ? timestampFor(consumedOn, context.today) : undefined),
     };
 
@@ -418,12 +398,6 @@ const getGoalTool: ChatTool = {
   },
 };
 
-/**
- * Energy split used when a goal is set by calories alone and there is no earlier
- * goal to borrow macros from: 30% protein, 40% carbohydrate, 30% fat. A common
- * balanced starting point, and better than refusing to act or inventing a
- * lopsided split per request.
- */
 const DEFAULT_MACRO_SPLIT = { protein: 0.3, carbs: 0.4, fat: 0.3 } as const;
 
 const setGoalTool: ChatTool = {
@@ -528,7 +502,7 @@ const getSummaryTool: ChatTool = {
     const userId = context.userId;
 
     if (breakdown === 'macros') {
-      // The service already reports the range it resolved, so it is not repeated.
+
       return { result: await reportsService.getMacroBreakdown(userId, { ...range, page: 1, pageSize: 1 }) };
     }
 
@@ -590,8 +564,7 @@ const getSummaryTool: ChatTool = {
     return {
       result: {
         range: { from, to },
-        // Days beyond the cap are dropped rather than paged through, and the model
-        // is told so it can say the answer covers part of the range.
+
         truncatedTo: report.meta.totalItems > MAX_DAILY_ROWS ? MAX_DAILY_ROWS : undefined,
         days: report.data.map((row) => ({
           date: row.date,
@@ -825,18 +798,10 @@ async function resolveTarget(
   };
 }
 
-/** Derived from the same table the handlers live in, so the two cannot drift apart. */
 export const CHAT_TOOL_DEFINITIONS: ToolDefinition[] = Object.values(CHAT_TOOLS).map(
   (tool) => tool.definition,
 );
 
-/**
- * Runs one tool call and always produces a result the conversation can continue
- * from. A failure is reported back to the model as data rather than thrown,
- * because the model is the only party that can recover: told the entry id was
- * wrong, it looks the entry up and tries again, where an exception would end the
- * turn with a blank reply.
- */
 export async function runTool(
   name: string,
   rawArguments: string,
@@ -871,17 +836,11 @@ function parseArguments(raw: string): Record<string, unknown> {
       ? (parsed as Record<string, unknown>)
       : {};
   } catch {
-    // A malformed argument string reads as "no arguments given", and the required
-    // -field checks in each handler turn that into a message the model can act on.
+
     return {};
   }
 }
 
-/**
- * Noon on the day itself for a backdated entry, and the current instant for
- * today. Noon is far enough from either midnight that the stored timestamp
- * cannot read as the neighbouring day in any time zone.
- */
 function timestampFor(consumedOn: string, today: string): Date {
   return consumedOn === today ? new Date() : new Date(`${consumedOn}T12:00:00.000Z`);
 }
@@ -926,8 +885,6 @@ function readMicronutrients(args: Record<string, unknown>): CreateEntryInput['mi
     const entry = item as Record<string, unknown>;
     const nutrient = readString(entry, 'nutrient')?.toLowerCase();
 
-    // Unknown keys are dropped: the schema pins the model to a known list, so
-    // anything else is invented and would pollute the micronutrient report.
     if (!nutrient || !isKnownMicronutrient(nutrient)) {
       continue;
     }
@@ -938,7 +895,6 @@ function readMicronutrients(args: Record<string, unknown>): CreateEntryInput['mi
   return [...byKey.values()].slice(0, MAX_MICRONUTRIENTS);
 }
 
-/** Spreads into an object only when the value is present, keeping patches sparse. */
 function optional<K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> {
   return value === undefined ? {} : ({ [key]: value } as Partial<Record<K, V>>);
 }
@@ -949,7 +905,6 @@ const clamp = (value: number | undefined, fallback: number, max: number): number
 const clampAmount = (value: number | undefined, fallback: number): number =>
   clamp(value, fallback, LIMITS.amount);
 
-/** For patch fields, where absent and zero mean different things. */
 const amountOrUndefined = (
   value: number | undefined,
   max: number = LIMITS.amount,
@@ -958,8 +913,6 @@ const amountOrUndefined = (
 function readString(args: Record<string, unknown>, key: string): string | undefined {
   const value = args[key];
 
-  // Numbers are accepted because a model will happily answer a string field with
-  // one, and rejecting that would fail a call that is otherwise fine.
   if (typeof value === 'number' && Number.isFinite(value)) {
     return String(value);
   }
@@ -990,7 +943,6 @@ function readMealType(args: Record<string, unknown>, key: string): MealType | un
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Accepts a date key, and tolerates a full ISO timestamp by taking its date. */
 function readDateKey(args: Record<string, unknown>, key: string): string | undefined {
   const candidate = readString(args, key)?.slice(0, 10);
 

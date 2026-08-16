@@ -159,7 +159,6 @@ function AssistantOrUserBody({ turn }: { turn: ThreadTurn }) {
   );
 }
 
-/** Pulls the aligned text table out so it can render in a monospace snapshot, not as an image. */
 function splitDraftTable(content: string): { before: string; table: string | null; after: string } {
   const lines = content.split('\n');
   const start = lines.findIndex((line) => line.startsWith('#') && line.includes('Meal') && line.includes('Food'));

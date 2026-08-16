@@ -12,13 +12,6 @@ interface PhotoExtractProps {
   onApply: (result: ExtractionResult) => void;
 }
 
-/**
- * Uploads a nutrition label or meal photo and fills the form with what comes
- * back. The result is applied as soon as it arrives rather than offered as a
- * choice: the model has already decided what the plate adds up to, and asking
- * the user to confirm that in a second step only delays the same outcome. What
- * it saw is listed underneath, and every field stays editable.
- */
 export function PhotoExtract({ isAvailable, onApply }: PhotoExtractProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -31,7 +24,6 @@ export function PhotoExtract({ isAvailable, onApply }: PhotoExtractProps) {
     setResult(null);
     setIsExtracting(true);
 
-    // Revoked before replacing so repeated uploads do not leak object URLs.
     setPreviewUrl((current) => {
       if (current) {
         URL.revokeObjectURL(current);
@@ -89,7 +81,7 @@ export function PhotoExtract({ isAvailable, onApply }: PhotoExtractProps) {
           if (file) {
             void handleFile(file);
           }
-          // Reset so choosing the same file twice still fires a change event.
+
           event.target.value = '';
         }}
       />

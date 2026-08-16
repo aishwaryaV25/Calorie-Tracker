@@ -21,9 +21,7 @@ model User {
   weights      WeightLog[]
 }
 
-/// Goals are append-only rather than mutable: each row is the set of targets that
-/// took effect on `effectiveFrom`. Historical reports can therefore compare a day
-/// against the targets that were actually active on that day.
+/// Goals are versioned by effectiveFrom. Same-day save replaces in the service.
 model Goal {
   id             String   @id @default(cuid())
   userId         String
@@ -40,13 +38,12 @@ model Goal {
   @@index([userId, effectiveFrom])
 }
 
-/// One weigh-in per calendar day. Logging again on the same day replaces that
-/// reading so the chart does not fork into two points for Tuesday.
+/// One weigh-in per calendar day. Saving again that day replaces the row.
 model WeightLog {
   id        String   @id @default(cuid())
   userId    String
   kg        Float
-  /// Midnight UTC key for the eater's calendar day, same convention as entries.
+  /// Midnight UTC of the eater's calendar day.
   loggedOn  DateTime
   note      String?
   createdAt DateTime @default(now())
@@ -70,18 +67,11 @@ model FoodEntry {
   carbGrams    Float    @default(0)
   fatGrams     Float    @default(0)
 
-  /// Exact time the food was eaten, used for ordering within a day.
   consumedAt   DateTime
-  /// Same instant truncated to midnight UTC. Denormalised so daily and weekly
-  /// aggregates can be a plain indexed GROUP BY instead of a per-dialect date
-  /// function, which also keeps the queries portable across databases.
+  /// Midnight UTC of consumedOn, so daily totals are a plain GROUP BY.
   consumedOn   DateTime
-
-  /// How the entry was created: manual | image | pdf | chat. Useful for the
-  /// reports and for debugging AI-generated entries.
+  /// manual | image | pdf | chat
   source       String   @default("manual")
-
-  /// Optional free text from the log-meal form. Not used in reports.
   notes        String?
 
   createdAt    DateTime @default(now())
@@ -94,13 +84,10 @@ model FoodEntry {
   @@index([userId, mealType])
 }
 
-/// Micronutrients are stored as rows rather than columns. The set of vitamins and
-/// minerals an AI extraction or a PDF import might return is open-ended, so a
-/// fixed column per nutrient would mean a migration every time a new one appears.
+/// Micros as rows so a new nutrient does not need a migration.
 model NutrientAmount {
   id       String    @id @default(cuid())
   entryId  String
-  /// Canonical key, e.g. "vitamin_c", "iron", "sodium".
   nutrient String
   amount   Float
   unit     String

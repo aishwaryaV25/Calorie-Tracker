@@ -1,10 +1,5 @@
 import { body } from 'express-validator';
 
-/**
- * The transcript is sent whole on every turn, so it is also the request's size
- * budget. These caps keep one turn's prompt bounded regardless of how long the
- * user has been chatting; the client trims older turns to match.
- */
 export const MAX_CHAT_MESSAGES = 24;
 export const MAX_CHAT_MESSAGE_LENGTH = 2_000;
 
@@ -22,8 +17,7 @@ export const chatValidators = [
     .trim()
     .isLength({ min: 1, max: MAX_CHAT_MESSAGE_LENGTH })
     .withMessage(`Each message must be between 1 and ${MAX_CHAT_MESSAGE_LENGTH} characters.`),
-  // A calendar day, kept as a string for the same reason as an entry's
-  // `consumedOn`: parsing it into an instant is what loses the day.
+
   body('today')
     .optional()
     .matches(/^\d{4}-\d{2}-\d{2}$/)

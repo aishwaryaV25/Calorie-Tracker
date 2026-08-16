@@ -1,8 +1,3 @@
-/**
- * Errors thrown anywhere in a request are expected to be `AppError` instances.
- * The error middleware turns them into a response verbatim; anything else is
- * treated as an unexpected fault and reported as a generic 500.
- */
 export class AppError extends Error {
   readonly statusCode: number;
   readonly code: string;

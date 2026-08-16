@@ -1,12 +1,5 @@
 import 'dotenv/config';
 
-/**
- * Every environment variable the app reads, resolved and checked once at start-up.
- * Nothing else in the codebase touches `process.env`, so a missing or malformed
- * setting fails immediately with a clear message instead of surfacing as a
- * confusing runtime error on the first request that happens to need it.
- */
-
 class ConfigError extends Error {
   constructor(problems: string[]) {
     super(`Invalid environment configuration:\n${problems.map((p) => `  - ${p}`).join('\n')}`);
@@ -75,60 +68,24 @@ if (directUrl && !/^postgres(ql)?:\/\//i.test(directUrl)) {
 
 const corsOrigin = optional('CORS_ORIGIN', 'http://localhost:3000');
 
-/**
- * The AI provider is addressed through the OpenAI chat-completions shape, which
- * several vendors implement. Pointing `AI_BASE_URL` elsewhere is enough to swap
- * provider, so nothing here is specific to OpenAI beyond the default.
- */
 const aiApiKey = (process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY ?? '').trim();
 const aiBaseUrl = optional('AI_BASE_URL', 'https://api.openai.com/v1').replace(/\/+$/, '');
 const aiModel = optional('AI_MODEL', process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini');
 
-/**
- * Chat may use a different model from image extraction, because the two jobs ask
- * for different things: reading a photo needs vision, while the assistant needs
- * dependable tool calling and short replies. On a metered free tier they are also
- * budgeted separately, so splitting them stops a few chat turns from exhausting
- * the allowance for reading a photo. Left blank, one model does both.
- */
 const aiChatModel = optional('AI_CHAT_MODEL', aiModel);
 
-/**
- * How to ask for JSON back. `schema` sends a strict JSON schema, which OpenAI
- * honours exactly; `object` asks only for valid JSON and describes the shape in
- * the prompt instead, which is all most OpenAI-compatible providers support.
- */
 const aiJsonMode = optional('AI_JSON_MODE', 'schema');
 
 if (!['schema', 'object'].includes(aiJsonMode)) {
   problems.push('AI_JSON_MODE must be one of: schema, object');
 }
 
-/**
- * How hard a reasoning model should think before reading an image. Left blank the
- * parameter is not sent at all, because a provider that does not know it rejects
- * the whole request.
- *
- * Worth setting for a model that reasons by default: extraction asks a narrow
- * question with the answer shape already pinned down, so deliberation there mostly
- * buys latency and tokens.
- *
- * It applies to extraction alone, and the accepted values are why: they differ
- * per model, with "none" valid on Qwen and rejected by gpt-oss, which takes only
- * low, medium or high. Rather than keep a matching setting per model, chat sends
- * nothing and takes the provider's own default, which is what suits it anyway.
- */
 const aiReasoningEffort = optional('AI_REASONING_EFFORT', '');
 
 if (aiReasoningEffort && !['none', 'low', 'medium', 'high'].includes(aiReasoningEffort)) {
   problems.push('AI_REASONING_EFFORT must be empty or one of: none, low, medium, high');
 }
 
-/**
- * Gemini is a second provider: chat, and the PDF import's deep-analyse
- * fallback. Photos stay on Groq (`AI_*`) so a long conversation cannot spend
- * the vision quota. The two keys are independent for the same reason.
- */
 const geminiApiKey = (process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? '').trim();
 const geminiModel = optional('GEMINI_MODEL', 'gemini-3.5-flash-lite');
 const geminiBaseUrl = optional(
@@ -136,10 +93,6 @@ const geminiBaseUrl = optional(
   'https://generativelanguage.googleapis.com/v1beta',
 ).replace(/\/+$/, '');
 
-/**
- * Lite first: chat is a few tool calls and a short reply, so thinking-heavy
- * 3.5/3.6 Flash feels like a hang. 2.5-flash is retired for new keys.
- */
 const geminiFallbacks = [
   'gemini-3.5-flash-lite',
   'gemini-3.5-flash',
@@ -185,10 +138,6 @@ export const config = {
     chatModel: aiChatModel,
     jsonMode: aiJsonMode as 'schema' | 'object',
     reasoningEffort: aiReasoningEffort,
-    /**
-     * AI routes stay mounted without a key and return a clear 503, so the rest of
-     * the app remains runnable for anyone who just wants to try the core features.
-     */
     isConfigured: aiApiKey.length > 0,
   },
   gemini: {

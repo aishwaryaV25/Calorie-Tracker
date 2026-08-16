@@ -20,7 +20,6 @@ import * as entriesService from '../services/entriesService.js';
 
 export const entriesRouter = Router();
 
-// Applies to every route below, so no individual handler can forget it.
 entriesRouter.use(authenticate);
 
 entriesRouter.get(
@@ -49,10 +48,6 @@ entriesRouter.post(
   }),
 );
 
-/**
- * Several foods from one plate, saved together. Registered before `/:id` so
- * "batch" is not read as an entry id.
- */
 entriesRouter.post(
   '/batch',
   createEntriesBatchValidators,

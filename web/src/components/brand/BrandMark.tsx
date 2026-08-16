@@ -1,10 +1,5 @@
 import Image from 'next/image';
 
-/**
- * Ink only: the C is a transparent PNG. "by Typeface" is positioned against
- * the image box, not the padded lockup — percent-of-parent was measuring the
- * reserved text gutter and pushing the tag away from the letter.
- */
 export function BrandMark({
   size = 32,
   withName = true,

@@ -1,6 +1,4 @@
-# Render Blueprint for the Express API.
-# Neon stays the database — do not add a Render Postgres.
-# Dashboard: New → Blueprint → this repo, or New → Web Service and match these values.
+# Render Blueprint for the Express API. Neon stays the database.
 
 services:
   - type: web

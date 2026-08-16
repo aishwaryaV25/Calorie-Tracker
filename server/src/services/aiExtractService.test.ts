@@ -2,12 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { sanitiseExtraction } from './aiExtractService.js';
 
-/**
- * The model's output is untrusted input. These cases cover the ways a response
- * can be wrong without being malformed: impossible numbers, invented nutrient
- * keys, and arithmetic that does not add up.
- */
-
 const base = {
   source: 'meal_photo',
   suggestedMealType: 'breakfast',
@@ -81,7 +75,7 @@ describe('sanitiseExtraction', () => {
   });
 
   it('warns when macros and calories disagree, without silently rewriting either', () => {
-    // 10g protein + 50g carbs + 6g fat implies roughly 294 kcal, not 1200.
+
     const result = sanitiseExtraction(extraction({ calories: 1200 }));
 
     assert.equal(result.warnings.length, 1);
@@ -99,7 +93,6 @@ describe('sanitiseExtraction', () => {
       }),
     );
 
-    // 250 kcal of components against a 294 kcal total is within tolerance.
     assert.deepEqual(result.warnings, []);
 
     const mismatched = sanitiseExtraction(

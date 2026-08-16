@@ -13,18 +13,11 @@ import * as entriesService from './entriesService.js';
 import * as goalsService from './goalsService.js';
 import * as weightsService from './weightsService.js';
 
-/**
- * The floating companion. It talks; it does not write the diary. Chat Support
- * on /chat is the agent that logs and edits. This one is for diet ideas, "how
- * do I use this page?", and ordinary conversation.
- */
-
 export interface DietBotReply {
   reply: string;
   conversationId: string;
 }
 
-/** Read-only tools. A write name is rejected by `runTool` as unknown. */
 export const DIET_BOT_TOOL_NAMES = [
   'get_remaining',
   'get_goal',

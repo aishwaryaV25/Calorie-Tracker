@@ -2,10 +2,6 @@
 
 import Image from 'next/image';
 
-/**
- * The live Log a Meal screen — photo, filled fields, AI detected list, donut.
- * Marketing only; it does not call the API.
- */
 export function ExtractPreview() {
   return (
     <aside

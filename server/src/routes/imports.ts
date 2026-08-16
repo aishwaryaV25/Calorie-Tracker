@@ -16,15 +16,10 @@ export const importsRouter = Router();
 
 importsRouter.use(authenticate);
 
-/** Whether Deep Analyse can run. The script parse is always available. */
 importsRouter.get('/status', (_req, res) => {
   res.json(pdfImportService.importStatus());
 });
 
-/**
- * Reads a PDF into a draft table. Nothing is saved: the user reviews the rows
- * (and can ask Gemini to try again) before posting them to /commit.
- */
 importsRouter.post(
   '/parse',
   rateLimit({ name: 'import', max: 8, windowMs: 60_000 }),
@@ -48,7 +43,6 @@ importsRouter.post(
   }),
 );
 
-/** Writes the confirmed rows as food entries sourced from a PDF. */
 importsRouter.post(
   '/commit',
   importCommitValidators,

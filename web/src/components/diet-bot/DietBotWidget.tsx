@@ -70,11 +70,6 @@ function readStoredPosition(): Position | null {
   }
 }
 
-/**
- * Always-on diet buddy. Drag the red disc anywhere; click it to open a small
- * chat. Lives in the app shell so it survives page changes. It cannot write
- * the diary — that stays on Chat Support.
- */
 export function DietBotWidget() {
   const pathname = usePathname();
   const { user } = useAuth();

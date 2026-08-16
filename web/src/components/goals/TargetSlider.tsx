@@ -2,10 +2,6 @@
 
 import { cx } from '@/components/ui';
 
-/**
- * Number plus range control for a daily target. The value is still typed so a
- * user can set 2,175 kcal exactly; the slider is the mock's polish on top.
- */
 export function TargetSlider({
   id,
   label,

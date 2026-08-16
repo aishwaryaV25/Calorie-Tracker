@@ -28,7 +28,7 @@ describe('dates', () => {
   });
 
   it('finds Monday of the ISO week', () => {
-    // Saturday 15 Aug 2026 → week starting Monday 10 Aug.
+
     assert.equal(toDateKey(startOfIsoWeek(fromDateKey('2026-08-15'))), '2026-08-10');
     assert.equal(toDateKey(addDays(fromDateKey('2026-08-15'), 1)), '2026-08-16');
   });

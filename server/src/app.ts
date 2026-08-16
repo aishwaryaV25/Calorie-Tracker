@@ -26,14 +26,10 @@ function isAllowedOrigin(origin: string): boolean {
 export function createApp() {
   const app = express();
 
-  // Render (and any other reverse proxy) terminates TLS. Trust the first hop so
-  // forwarded proto/host are visible if we ever need them.
   if (config.isProduction) {
     app.set('trust proxy', 1);
   }
 
-  // same-origin CORP would hide every response from the Vercel app, which the
-  // browser then reports as a network failure ("Could not reach the server").
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },

@@ -30,11 +30,6 @@ const TOKEN_STORAGE_KEY = 'calorie-tracker.token';
 const NETWORK_ERROR =
   'Could not reach the API. On the live site the server may be waking up — wait a minute and try again.';
 
-/**
- * Local dev talks to :4000. A Vercel build that still has localhost baked in
- * would fail in the visitor's browser, so that case falls back to same-origin
- * `/api` (rewritten to Render by next.config).
- */
 function apiBase(): string {
   const configured = CONFIGURED_API_URL;
   const fallback = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:4000/api';
@@ -54,10 +49,6 @@ function apiBase(): string {
   return raw;
 }
 
-/**
- * Error carrying the API's structured response, so forms can show messages next
- * to the offending field instead of one generic banner.
- */
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -71,7 +62,6 @@ export class ApiError extends Error {
     this.fieldErrors = fieldErrors;
   }
 
-  /** Message for a specific field, if the API rejected that field. */
   fieldError(field: string): string | undefined {
     return this.fieldErrors.find((error) => error.field === field)?.message;
   }
@@ -115,7 +105,7 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
   query?: QueryParams;
-  /** Sent as-is for file uploads; the browser sets the multipart boundary. */
+
   formData?: FormData;
 }
 
@@ -140,8 +130,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       body: options.formData ?? (options.body !== undefined ? JSON.stringify(options.body) : null),
     });
   } catch {
-    // A network-level failure has no HTTP status; the most likely cause in
-    // development is the API not running, so say that rather than "failed to fetch".
+
     throw new ApiError(0, 'NETWORK_ERROR', NETWORK_ERROR);
   }
 
@@ -170,17 +159,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
 export interface DownloadedFile {
   blob: Blob;
-  /** The name the API suggested, so the saved file matches what it contains. */
+
   filename: string;
 }
 
-/**
- * A binary response, such as the PDF report.
- *
- * Separate from `request` because a download differs at every step: the body is
- * never JSON, the filename is in a header, and a failure still arrives as JSON
- * and has to be unpicked before it can be reported.
- */
 async function requestFile(
   path: string,
   query: QueryParams,
@@ -217,10 +199,6 @@ async function requestFile(
   return { blob: await response.blob(), filename: match?.[1] ?? fallbackName };
 }
 
-/**
- * Filter types carry an index signature so they satisfy the query-string
- * builder, which accepts any bag of scalar values.
- */
 export interface EntryFilters extends QueryParams {
   page?: number;
   pageSize?: number;
@@ -253,9 +231,7 @@ export const api = {
     get: (id: string) => request<FoodEntry>(`/entries/${id}`),
     create: (body: CreateEntryPayload) =>
       request<FoodEntry>('/entries', { method: 'POST', body }),
-    /**
-     * Several foods from one plate. All rows succeed or none do.
-     */
+
     batch: (body: { entries: CreateEntryPayload[]; source?: 'manual' | 'image' }) =>
       request<{ data: FoodEntry[] }>('/entries/batch', { method: 'POST', body }),
     update: (id: string, body: Partial<CreateEntryPayload>) =>
@@ -264,10 +240,7 @@ export const api = {
   },
 
   goals: {
-    /**
-     * `date` is the caller's own calendar day. Sent explicitly because the server
-     * would otherwise use its UTC day, which is not the day the user is having.
-     */
+
     current: (date: string) => request<{ goal: Goal | null }>('/goals/current', { query: { date } }),
     history: (query: QueryParams = {}) => request<Paginated<Goal>>('/goals', { query }),
     save: (body: CreateGoalPayload) => request<Goal>('/goals', { method: 'POST', body }),
@@ -298,7 +271,7 @@ export const api = {
       request<Paginated<MicronutrientRow> & { days: number }>('/reports/micronutrients', { query }),
     goalComparison: (query: ReportRange) =>
       request<GoalComparison>('/reports/goal-comparison', { query }),
-    /** The whole report as a PDF, laid out and named by the server. */
+
     pdf: (query: ReportRange) => requestFile('/reports/pdf', query, 'calorie-report.pdf'),
   },
 
@@ -315,11 +288,7 @@ export const api = {
       formData.append('image', file);
       return request<ExtractionResult>('/ai/extract', { method: 'POST', formData });
     },
-    /**
-     * One turn of conversation. The whole transcript goes up each time because the
-     * API keeps no session, and `today` tells the assistant which day it is where
-     * the user is rather than where the server is.
-     */
+
     chat: ({
       attachment,
       ...body
@@ -360,11 +329,7 @@ export const api = {
 
   imports: {
     status: () => request<{ deepAnalyseAvailable: boolean }>('/imports/status'),
-    /**
-     * Reads a PDF into a draft table. `mode` is "script" on the first pass and
-     * "gemini" when the user asks for a deep analyse. The file goes up each
-     * time because the API keeps no copy of it.
-     */
+
     parse: (file: File, today: string, mode: 'script' | 'gemini' = 'script') => {
       const formData = new FormData();
       formData.append('file', file);

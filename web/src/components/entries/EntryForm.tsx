@@ -9,7 +9,6 @@ import { MicronutrientFields } from './MicronutrientFields';
 import { MEAL_LABELS, MEAL_TYPES, type FoodEntry, type MealType, type Micronutrient } from '@/lib/types';
 
 export interface EntryFormProps {
-  /** Editing an existing entry when provided, creating a new one otherwise. */
   entry?: FoodEntry | null;
   defaultMealType?: MealType;
   isAiAvailable: boolean;
@@ -30,17 +29,12 @@ interface FormValues {
   consumedAt: string;
 }
 
-/** `datetime-local` expects local wall-clock time, not a UTC ISO string. */
 function toLocalInputValue(isoTimestamp?: string): string {
+  // datetime-local wants the wall clock, not UTC.
   const date = isoTimestamp ? new Date(isoTimestamp) : new Date();
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 }
 
-/**
- * A `datetime-local` input reports an empty string while its value is
- * incomplete, and converting an invalid Date throws rather than returning NaN.
- * Returning null instead lets the caller report the problem on the field.
- */
 function toIsoTimestamp(localValue: string): string | null {
   const parsed = new Date(localValue);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
@@ -71,10 +65,6 @@ const initialValues = (entry: FoodEntry | null | undefined, mealType: MealType):
         consumedAt: toLocalInputValue(),
       };
 
-/**
- * The meal entry form. Used both inside the dialog on the dashboard and as the
- * full-page Log Meal view, so the two cannot drift apart.
- */
 export function EntryForm({
   entry,
   defaultMealType = 'breakfast',
@@ -105,12 +95,10 @@ export function EntryForm({
     event.preventDefault();
     setError(null);
 
-    // The input holds local time; the API stores the absolute instant.
     const consumedAt = toIsoTimestamp(values.consumedAt);
 
     if (!consumedAt) {
-      // Reported through the same channel as a server rejection, so it lands
-      // under the field rather than in a banner.
+
       setError(
         new ApiError(400, 'VALIDATION_ERROR', 'Check the highlighted field.', [
           { field: 'consumedAt', message: 'Enter a full date and time.' },
@@ -148,10 +136,7 @@ export function EntryForm({
         carbGrams: Number(values.carbGrams),
         fatGrams: Number(values.fatGrams),
         consumedAt,
-        // The date exactly as it was picked. Sent alongside the instant because
-        // the server cannot tell which calendar day a UTC timestamp belongs to
-        // without knowing the user's time zone — an 00:30 entry in Delhi would
-        // otherwise be filed under the previous day.
+
         consumedOn: values.consumedAt.slice(0, 10),
         micronutrients: micronutrients.map((item) => ({
           nutrient: item.nutrient,
@@ -165,8 +150,6 @@ export function EntryForm({
         : await api.entries.create(payload);
 
       if (!entry) {
-        // Clears the form so several items can be logged in a row without
-        // the previous values lingering.
         resetForm();
       }
 
@@ -178,7 +161,6 @@ export function EntryForm({
     }
   }
 
-  // Field-level messages render inline, so a banner would just repeat them.
   const bannerError =
     error && !(error instanceof ApiError && error.fieldErrors.length > 0) ? error.message : null;
 
@@ -202,8 +184,7 @@ export function EntryForm({
               carbGrams: String(entry.carbGrams),
               fatGrams: String(entry.fatGrams),
               mealType: result.suggestedMealType ?? current.mealType,
-              // `consumedAt` is deliberately untouched: the photo says what was
-              // eaten, not when the user is recording it.
+
             }));
             setMicronutrients(entry.micronutrients);
           }}

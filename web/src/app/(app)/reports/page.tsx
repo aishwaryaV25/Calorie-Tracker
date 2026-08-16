@@ -22,15 +22,9 @@ import {
 import { useDataRevision } from '@/lib/data-sync';
 import type { GoalComparison } from '@/lib/types';
 
-/** One page of the daily report is capped at this by the API. */
 const MAX_ROWS_PER_PAGE = 100;
 const MICRONUTRIENTS_PER_PAGE = 8;
 
-/**
- * What is wrong with the dates the user has typed, if anything. A half-filled
- * range is not an error — the API falls back to its own default window — but the
- * charts would then not match the inputs, so it is worth saying so.
- */
 function rangeWarning(range: DateRange): string | null {
   if (!range.from || !range.to) {
     return 'Enter both a start and an end date. Until then the reports stay on the last 30 days.';
@@ -77,17 +71,13 @@ export default function ReportsPage() {
 
   function applyRange(next: DateRange) {
     setRange(next);
-    // The nutrients on page 3 of the old range have nothing to do with the new one.
+
     setMicroPage(1);
     setDownloadError(null);
   }
 
-  // The reports share a range, so a bad range fails them all identically; one
-  // banner is enough.
   const error = daily.error ?? weekly.error ?? macros.error ?? comparison.error;
 
-  // The API returns days newest first, which is right for a table and backwards
-  // for a chart that reads left to right.
   const trendRows = [...(daily.data?.data ?? [])].reverse();
   const isTruncated = days !== null && days > MAX_ROWS_PER_PAGE;
 
@@ -118,8 +108,7 @@ export default function ReportsPage() {
         </div>
       </Card>
 
-      {/* A bad range fails every request the same way, so the warning already
-          explains the errors underneath it. */}
+      {}
       {warning ? (
         <Alert tone="warning">{warning}</Alert>
       ) : (
@@ -166,7 +155,7 @@ export default function ReportsPage() {
           {weekly.isLoading && !weekly.data ? (
             <Skeleton className="h-56 w-full" />
           ) : (
-            // Weeks come back newest first, same as days.
+
             <WeeklyCaloriesChart rows={[...(weekly.data?.data ?? [])].reverse()} />
           )}
         </Card>

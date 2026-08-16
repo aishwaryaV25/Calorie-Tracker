@@ -1,20 +1,5 @@
 import PDFDocument from 'pdfkit';
 
-/**
- * A small drawing toolkit for the PDF report: colours, spacing, tables and bars.
- *
- * It exists so that `reportPdfService` reads as a description of the report's
- * contents rather than a run of coordinate arithmetic, and so the look of the
- * document is decided in one place.
- */
-
-/**
- * The web app's palette, by value.
- *
- * Copied rather than imported: the two applications share no code by design, and
- * a PDF cannot read a CSS variable. Any change to the theme has to be made in
- * both, which is the price of the printed report matching the screen.
- */
 export const THEME = {
   ink: '#111113',
   muted: '#3e3e3e',
@@ -35,30 +20,23 @@ export function createDocument(title: string): Document {
   return new PDFDocument({
     size: 'A4',
     margins: { top: PAGE_MARGIN, bottom: PAGE_MARGIN + 14, left: PAGE_MARGIN, right: PAGE_MARGIN },
-    // Keeps every page in memory so the footers can be stamped once the total
-    // page count is known.
+
     bufferPages: true,
     info: { Title: title, Author: 'Calorie, by Typeface' },
   });
 }
 
-/** The usable width between the margins. */
 export const contentWidth = (doc: Document): number =>
   doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
 const bottomLimit = (doc: Document): number => doc.page.height - doc.page.margins.bottom;
 
-/** Starts a new page when `needed` points would not fit on this one. */
 export function ensureSpace(doc: Document, needed: number): void {
   if (doc.y + needed > bottomLimit(doc)) {
     doc.addPage();
   }
 }
 
-/**
- * The dark banner at the top of the first page, carrying the red mark from the
- * app's header so the document is recognisably from the same product.
- */
 export function banner(doc: Document, title: string, subtitle: string, meta: string): void {
   const height = 96;
   const { left } = doc.page.margins;
@@ -91,8 +69,6 @@ export function sectionTitle(doc: Document, text: string): void {
   const { left } = doc.page.margins;
   const top = doc.y;
 
-  // A short red rule above the title, echoing the accent used for headings on
-  // screen without tinting the text itself.
   doc.rect(left, top, 22, 2).fill(THEME.accent);
   doc.font('Helvetica-Bold').fontSize(12).fillColor(THEME.ink).text(text, left, top + 10);
   doc.y += 6;
@@ -111,11 +87,10 @@ export interface Tile {
   label: string;
   value: string;
   note?: string;
-  /** Draws the value in red, for a figure that needs attention. */
+
   isAlert?: boolean;
 }
 
-/** The summary row: a handful of headline figures in panels, side by side. */
 export function tiles(doc: Document, items: Tile[]): void {
   const height = 62;
   ensureSpace(doc, height + 12);
@@ -161,7 +136,7 @@ export function tiles(doc: Document, items: Tile[]): void {
 
 export interface Column {
   header: string;
-  /** Share of the table width, as a fraction. The shares should sum to 1. */
+
   width: number;
   align?: 'left' | 'right';
 }
@@ -169,10 +144,6 @@ export interface Column {
 const ROW_HEIGHT = 18;
 const HEADER_HEIGHT = 20;
 
-/**
- * A table that carries its header onto any page it spills over to, so a long run
- * of days is still readable after a page break.
- */
 export function table(doc: Document, columns: Column[], rows: string[][]): void {
   ensureSpace(doc, HEADER_HEIGHT + ROW_HEIGHT * 2);
 
@@ -211,8 +182,6 @@ export function table(doc: Document, columns: Column[], rows: string[][]): void 
 
     const top = doc.y;
 
-    // Banded rows rather than horizontal rules: fewer lines, easier to follow
-    // across a wide table.
     if (rowIndex % 2 === 1) {
       doc.rect(left, top, total, ROW_HEIGHT).fill(THEME.panel);
     }
@@ -245,14 +214,10 @@ export function table(doc: Document, columns: Column[], rows: string[][]): void 
 export interface Bar {
   label: string;
   value: number;
-  /** Drawn in red when true — a day over its target. */
+
   isOver?: boolean;
 }
 
-/**
- * The daily calorie chart, drawn as vector bars rather than an embedded image so
- * it stays crisp at any zoom and needs no rendering engine.
- */
 export function barChart(doc: Document, bars: Bar[], target: number | null): void {
   const height = 130;
   ensureSpace(doc, height + 24);
@@ -268,7 +233,6 @@ export function barChart(doc: Document, bars: Bar[], target: number | null): voi
 
   doc.roundedRect(left, top - 6, width, height, CORNER_RADIUS).fillAndStroke(THEME.white, THEME.border);
 
-  // Inset so the first and last bars do not sit against the panel's border.
   const inset = 10;
   const slot = (width - inset * 2) / bars.length;
   const barWidth = Math.min(slot * 0.62, 22);
@@ -284,8 +248,6 @@ export function barChart(doc: Document, bars: Bar[], target: number | null): voi
         .fill(bar.isOver ? THEME.accent : THEME.ink);
     }
 
-    // Labelling every day would collide on a long range, so only every nth is
-    // written, chosen to keep roughly ten labels whatever the range.
     const step = Math.ceil(bars.length / 10);
 
     if (index % step === 0) {
@@ -317,8 +279,7 @@ export function barChart(doc: Document, bars: Bar[], target: number | null): voi
       .font('Helvetica')
       .fontSize(6.5)
       .fillColor(THEME.accent)
-      // Anchored to the left, where the line begins: the right-hand end is where
-      // the most recent bars are, and a label there sits on top of them.
+
       .text(`target ${Math.round(target)}`, left + 6, y - 9, { lineBreak: false });
   }
 
@@ -328,11 +289,10 @@ export function barChart(doc: Document, bars: Bar[], target: number | null): voi
 export interface MeterRow {
   label: string;
   value: string;
-  /** 0 to 1, clamped when drawn. Values over 1 fill the track in red. */
+
   fraction: number;
 }
 
-/** Horizontal meters, used for the macro split and goal adherence. */
 export function meters(doc: Document, rows: MeterRow[]): void {
   ensureSpace(doc, rows.length * 22 + 10);
 
@@ -377,10 +337,6 @@ export function meters(doc: Document, rows: MeterRow[]): void {
   doc.y += 4;
 }
 
-/**
- * Stamps "page n of m" on every page, which is only possible once the document is
- * complete, and closes it.
- */
 export function finish(doc: Document, footerNote: string): void {
   const range = doc.bufferedPageRange();
 
@@ -389,9 +345,6 @@ export function finish(doc: Document, footerNote: string): void {
 
     const y = doc.page.height - doc.page.margins.bottom + 8;
 
-    // The footer sits below the bottom margin, which pdfkit would otherwise read
-    // as the text overflowing and answer by appending a blank page. Dropping the
-    // margin for the stamping pass keeps it on the page it belongs to.
     doc.page.margins.bottom = 0;
 
     const width = contentWidth(doc);
@@ -411,7 +364,6 @@ export function finish(doc: Document, footerNote: string): void {
   doc.end();
 }
 
-/** Collects the document into a buffer, ready to send as a response body. */
 export function toBuffer(doc: Document): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];

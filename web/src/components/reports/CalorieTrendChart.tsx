@@ -25,11 +25,6 @@ const TOOLTIP_STYLE = {
   boxShadow: '0 4px 16px rgb(17 17 19 / 0.08)',
 };
 
-/**
- * Calories logged per day as bars, with the goal drawn as a line on top so the
- * comparison is readable at a glance. Days over target are coloured differently
- * rather than relying on the reader to compare bar height to the line.
- */
 export function CalorieTrendChart({ rows }: { rows: DailyReportRow[] }) {
   if (rows.length === 0) {
     return <p className="py-12 text-center text-sm text-muted">No data for this range yet.</p>;
@@ -61,8 +56,7 @@ export function CalorieTrendChart({ rows }: { rows: DailyReportRow[] }) {
           {data.map((entry) => (
             <Cell
               key={entry.date}
-              // Ink for a normal day, brand red when the day went over target,
-              // so the exception stands out without needing a second glance.
+
               fill={entry.isOver ? 'var(--accent)' : 'var(--foreground)'}
               fillOpacity={entry.calories === 0 ? 0.15 : 1}
             />
@@ -75,7 +69,7 @@ export function CalorieTrendChart({ rows }: { rows: DailyReportRow[] }) {
           strokeDasharray="4 4"
           strokeWidth={1.5}
           dot={false}
-          // Keeps the line continuous across days with no goal recorded.
+
           connectNulls
         />
       </ComposedChart>
@@ -83,7 +77,6 @@ export function CalorieTrendChart({ rows }: { rows: DailyReportRow[] }) {
   );
 }
 
-/** Simple bar chart of weekly totals, used on the reports page. */
 export function WeeklyCaloriesChart({
   rows,
 }: {

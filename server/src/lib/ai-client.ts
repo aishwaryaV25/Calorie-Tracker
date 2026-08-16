@@ -15,7 +15,7 @@ export interface ImageContent {
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  /** Null when the model replied with tool calls alone and no prose. */
+
   content: string | null | (TextContent | ImageContent)[];
   tool_call_id?: string;
   tool_calls?: ToolCall[];
@@ -38,26 +38,17 @@ export interface ToolDefinition {
 
 interface CompletionRequest {
   messages: ChatMessage[];
-  /** Defaults to the configured model, which is the one that can read images. */
+
   model?: string;
   tools?: ToolDefinition[];
-  /** Ask the model for a JSON object conforming to this schema. */
+
   jsonSchema?: { name: string; schema: Record<string, unknown> };
   temperature?: number;
-  /** Caps the reply, which is what bounds the worst-case wait for the user. */
+
   maxTokens?: number;
-  /**
-   * Sent only when given. Left out the provider's own default applies, which is
-   * the right choice whenever the caller cannot know that the model in use
-   * accepts the value: providers disagree on which levels exist.
-   */
+
   reasoningEffort?: string;
-  /**
-   * What to tell the user if the provider refuses the request outright. Supplied
-   * by the caller because only it knows what the user was doing: the same 4xx
-   * means "this photo cannot be read" on one path and "that message could not be
-   * acted on" on another.
-   */
+
   rejectionMessage?: string;
 }
 
@@ -66,7 +57,6 @@ export interface CompletionResult {
   toolCalls: ToolCall[];
 }
 
-/** Thrown when the API is reachable but the response cannot be used. */
 export class AiResponseError extends Error {}
 
 export const isAiConfigured = () => config.ai.isConfigured;
@@ -79,14 +69,6 @@ function assertConfigured(): void {
   }
 }
 
-/**
- * How to ask for JSON given the provider's capabilities.
- *
- * OpenAI enforces a JSON schema during decoding, so the reply is guaranteed to
- * match. Most compatible providers only offer plain JSON mode, where the schema
- * has to be described in the prompt and the reply merely tends to match — which
- * is why every field is re-checked in `sanitiseExtraction` regardless of mode.
- */
 function responseFormat(jsonSchema: CompletionRequest['jsonSchema']) {
   if (!jsonSchema) {
     return {};
@@ -104,12 +86,6 @@ function responseFormat(jsonSchema: CompletionRequest['jsonSchema']) {
   };
 }
 
-/**
- * Reasoning models emit their chain of thought in a `<think>` block ahead of the
- * answer unless asked not to. `AI_REASONING_EFFORT` turns that off at the
- * provider, but the block is stripped here as well so an unconfigured provider
- * cannot leak raw deliberation into a chat reply or break JSON parsing.
- */
 function stripReasoning(content: string | null): string | null {
   if (!content) {
     return content;
@@ -118,12 +94,6 @@ function stripReasoning(content: string | null): string | null {
   return content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 }
 
-/**
- * Plain JSON mode has no field for the schema, so it is appended to the
- * conversation as an instruction instead. This also satisfies the rule, common
- * to OpenAI and its imitators, that JSON mode requires the word "JSON" in the
- * prompt.
- */
 function withSchemaInstruction(request: CompletionRequest): ChatMessage[] {
   if (config.ai.jsonMode !== 'object' || !request.jsonSchema) {
     return request.messages;
@@ -140,14 +110,8 @@ function withSchemaInstruction(request: CompletionRequest): ChatMessage[] {
   ];
 }
 
-/**
- * A rate limit worth waiting out rather than reporting. Metered free tiers refill
- * per minute, so a request that arrives just over the line is told to come back
- * in a second or two — quicker than the user could retry, and invisible to them.
- */
 const MAX_RETRY_WAIT_MS = 6_000;
 
-/** How long the provider asks us to wait, in milliseconds, or null if it did not. */
 function rateLimitWait(response: Response): number | null {
   if (response.status !== 429) {
     return null;
@@ -161,19 +125,10 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface Attempt {
   response: Response;
-  /** The failure body, read once so it can be both classified and logged. */
+
   errorText: string;
 }
 
-/**
- * Whether a failed attempt is worth exactly one more.
- *
- * Two cases qualify. A rate limit the provider expects to clear in a moment,
- * and a tool call the model itself mangled — Groq validates the arguments the
- * model produced and rejects the request when they are not valid JSON, which is a
- * sampling accident rather than anything wrong with what was asked. Sampling
- * again almost always yields a well-formed call.
- */
 function shouldRetry({ response, errorText }: Attempt): boolean {
   const wait = rateLimitWait(response);
 
@@ -210,10 +165,6 @@ async function post(body: string): Promise<Attempt> {
   }
 }
 
-/**
- * Single place where the app talks to the model provider. Everything else works
- * with plain objects, so swapping providers means editing this file only.
- */
 export async function createCompletion(request: CompletionRequest): Promise<CompletionResult> {
   assertConfigured();
 
@@ -229,8 +180,6 @@ export async function createCompletion(request: CompletionRequest): Promise<Comp
 
   let attempt = await post(body);
 
-  // Retried once only: if the second try fails too, the caller is better off
-  // being told than held any longer.
   if (shouldRetry(attempt)) {
     await delay(rateLimitWait(attempt.response) ?? 0);
     attempt = await post(body);
@@ -239,12 +188,11 @@ export async function createCompletion(request: CompletionRequest): Promise<Comp
   const { response, errorText } = attempt;
 
   if (!response.ok) {
-    // Provider errors are logged in full but summarised to the client, which has
-    // no use for upstream detail and should not see account information.
+
     console.error(`AI provider returned ${response.status}: ${errorText}`);
 
     if (response.status === 429) {
-      // Saying how long to wait is far more useful to a user than "try later".
+
       const seconds = Math.ceil((rateLimitWait(response) ?? 0) / 1_000);
 
       throw serviceUnavailable(
@@ -254,9 +202,6 @@ export async function createCompletion(request: CompletionRequest): Promise<Comp
       );
     }
 
-    // A 4xx means the provider understood the request and refused it, so nothing
-    // will change by sending the same thing again. Reporting that as a server
-    // fault would send the user off retrying something that cannot succeed.
     if (response.status >= 400 && response.status < 500) {
       throw badRequest(request.rejectionMessage ?? 'The AI service could not process this request.');
     }
@@ -280,7 +225,6 @@ export async function createCompletion(request: CompletionRequest): Promise<Comp
   };
 }
 
-/** Parses a JSON payload returned by the model, with a clear error if it is malformed. */
 export function parseJsonContent<T>(content: string | null): T {
   if (!content) {
     throw new AiResponseError('The AI service returned no content to parse.');

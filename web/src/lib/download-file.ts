@@ -1,6 +1,5 @@
 import type { ChatDownload } from './types';
 
-/** Hands a blob to the browser under the name the API chose. */
 export function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

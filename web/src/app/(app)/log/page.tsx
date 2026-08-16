@@ -9,10 +9,6 @@ import { Alert, Button, Skeleton } from '@/components/ui';
 import { LogMealComposer } from '@/components/entries/LogMealComposer';
 import type { FoodEntry } from '@/lib/types';
 
-/**
- * Dedicated page for logging a meal. A photographed plate becomes one diary
- * row per food; the assignment fields stay required on each row.
- */
 export default function LogMealPage() {
   const today = todayKey();
   const [justLogged, setJustLogged] = useState<FoodEntry[]>([]);

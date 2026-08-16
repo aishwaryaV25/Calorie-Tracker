@@ -1,12 +1,3 @@
-/**
- * Shapes returned by the API.
- *
- * Declared here rather than imported from the server: the assignment requires
- * the frontend to be a separate application that talks to the backend only over
- * HTTP, so the two projects share no code. This file is the client's view of
- * that contract.
- */
-
 export const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 export type MealType = (typeof MEAL_TYPES)[number];
 
@@ -42,10 +33,6 @@ export interface Micronutrient {
   unit: string;
 }
 
-/**
- * Nutrients the log form can add by hand. Mirrors the API's known list so a
- * typed amount lands in the same unit the reports already use.
- */
 export const MICRONUTRIENTS = {
   vitamin_a: { label: 'Vitamin A', unit: 'mcg' },
   vitamin_c: { label: 'Vitamin C', unit: 'mg' },
@@ -176,9 +163,9 @@ export interface ExtractedEntry {
 export interface ExtractionResult {
   source: 'nutrition_label' | 'meal_photo';
   suggestedMealType: MealType | null;
-  /** The single entry the form is filled with. */
+
   entry: ExtractedEntry;
-  /** Foods on the plate, each ready to become its own diary row. */
+
   components: ExtractedComponent[];
   confidence: 'high' | 'medium' | 'low';
   warnings: string[];
@@ -195,19 +182,17 @@ export interface CreateEntryPayload {
   carbGrams?: number;
   fatGrams?: number;
   consumedAt?: string;
-  /** The calendar day the entry counts towards, as the user's clock sees it. */
+
   consumedOn?: string;
   notes?: string;
   micronutrients?: { nutrient: string; amount: number; unit?: string }[];
 }
 
-/** One turn of the conversation. The client keeps the transcript; the API does not. */
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
 }
 
-/** Something the assistant changed in the diary during a turn. */
 export interface ChatAction {
   tool: string;
   type?: 'meal_created' | 'meal_updated' | 'meal_deleted' | 'goals_updated' | 'report_ready';

@@ -11,15 +11,6 @@ import { config } from '../config.js';
 import { AiResponseError, createCompletion, parseJsonContent } from '../lib/ai-client.js';
 import { unprocessable } from '../lib/errors.js';
 
-/**
- * The photo is analysed and returned as a *draft*. Nothing is written here:
- * vision estimates are approximate, so the user reviews the numbers first.
- *
- * `entry` is the whole-plate (or whole-label) total, used to pre-fill a single
- * form. `components` are the foods on the plate, each with its own portion and
- * macros, so a multi-item log page can save one diary row per food.
- */
-
 export interface ExtractedEntry {
   foodName: string;
   quantity: number;
@@ -44,17 +35,16 @@ export interface ExtractedComponent {
 export interface ExtractionResult {
   source: 'nutrition_label' | 'meal_photo';
   suggestedMealType: MealType | null;
-  /** Ready to drop straight into a single-entry form. */
+
   entry: ExtractedEntry;
-  /** Foods on the plate, each ready to become its own diary row. */
+
   components: ExtractedComponent[];
-  /** Model's own confidence, surfaced so the UI can prompt for a closer look. */
+
   confidence: 'high' | 'medium' | 'low';
   warnings: string[];
   notes: string | null;
 }
 
-/** Raw shape requested from the model, before any checking of our own. */
 interface RawExtraction {
   source: string;
   suggestedMealType: string | null;
@@ -155,11 +145,6 @@ const responseSchema = {
   },
 } as const;
 
-/**
- * The prompt asks for one whole-meal total plus a per-food breakdown. The
- * totals stay self-consistent because the model has to add the items up, and
- * the log page can save each item as its own diary row.
- */
 const SYSTEM_PROMPT = `You read food images for a calorie tracker. Reply with one JSON object that fills a food diary.
 
 TWO KINDS OF IMAGE
@@ -185,13 +170,8 @@ ALWAYS
 - If the image shows neither food nor a nutrition label, reply with an empty foodName and 0 calories.
 - Output the JSON object only. No explanation, no markdown.`;
 
-/** Values above this are almost certainly a misread label rather than real food. */
 const MAX_CALORIES = 20_000;
 
-/**
- * Enough for a long dish name and a dozen components, and short enough to bound
- * how slow a single extraction can get.
- */
 const MAX_RESPONSE_TOKENS = 1400;
 
 export async function extractNutritionFromImage(
@@ -203,9 +183,7 @@ export async function extractNutritionFromImage(
   const completion = await createCompletion({
     temperature: 0,
     maxTokens: MAX_RESPONSE_TOKENS,
-    // The default model is the one chosen for its vision, and the configured
-    // effort belongs to this path: there is one right answer on the label, so
-    // deliberating about it only costs time.
+
     reasoningEffort: config.ai.reasoningEffort,
     rejectionMessage:
       'The AI service could not read this file. It may be corrupt, too small, or in a format the model does not support.',
@@ -227,11 +205,6 @@ export async function extractNutritionFromImage(
   return sanitiseExtraction(raw);
 }
 
-/**
- * Model output is treated as untrusted input. Numbers are clamped, unknown
- * nutrient keys dropped, and totals recomputed here rather than taken on trust,
- * so a hallucinated value cannot reach the client or the database unchecked.
- */
 export function sanitiseExtraction(raw: RawExtraction): ExtractionResult {
   if (!raw || typeof raw !== 'object') {
     throw new AiResponseError('The AI response was not an object.');
@@ -239,8 +212,6 @@ export function sanitiseExtraction(raw: RawExtraction): ExtractionResult {
 
   const foodName = typeof raw.foodName === 'string' ? raw.foodName.trim() : '';
 
-  // The prompt asks for an empty name when there is nothing to read, so this is
-  // the expected path for a photo of a wall, not an exceptional one.
   if (foodName.length === 0) {
     throw unprocessable(
       'No food or nutrition label could be recognised in this image. Try a clearer photo, or add the entry manually.',
@@ -276,15 +247,8 @@ export function sanitiseExtraction(raw: RawExtraction): ExtractionResult {
   };
 }
 
-/** Values disagreeing by more than this are worth a second look from the user. */
 const DRIFT_TOLERANCE = 0.25;
 
-/**
- * Two independent checks on the model's arithmetic: the macros against the
- * calorie figure, and the components against the total. Neither rewrites the
- * numbers, because there is no way to tell which side of a disagreement is the
- * wrong one — the form is pre-filled either way, with the doubt made visible.
- */
 function collectWarnings(
   entry: ExtractedEntry,
   components: ExtractedComponent[],
@@ -315,7 +279,6 @@ function collectWarnings(
 
 const drifts = (a: number, b: number) => Math.abs(a - b) / Math.max(a, b) > DRIFT_TOLERANCE;
 
-/** A bad name or figure is dropped rather than failing the whole request. */
 function sanitiseComponents(input: RawComponent[] | undefined): ExtractedComponent[] {
   if (!Array.isArray(input)) {
     return [];
@@ -337,7 +300,6 @@ function sanitiseComponents(input: RawComponent[] | undefined): ExtractedCompone
     }));
 }
 
-/** At most this many, matching the prompt, so a runaway list cannot reach the form. */
 const MAX_MICRONUTRIENTS = 8;
 
 function sanitiseMicronutrients(input: { nutrient: string; amount: number }[] | undefined) {
@@ -350,8 +312,6 @@ function sanitiseMicronutrients(input: { nutrient: string; amount: number }[] | 
   for (const item of input) {
     const key = typeof item?.nutrient === 'string' ? item.nutrient.trim().toLowerCase() : '';
 
-    // Unknown keys are dropped rather than stored: the schema constrains the
-    // model to a known list, and anything else is a hallucination.
     if (!isKnownMicronutrient(key)) {
       continue;
     }

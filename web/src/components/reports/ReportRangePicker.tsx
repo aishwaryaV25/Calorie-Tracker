@@ -19,7 +19,6 @@ const PRESETS: { id: Exclude<ReportPreset, 'custom'>; label: string; from: () =>
     { id: '90', label: 'Last 90 days', from: () => daysAgoKey(89), to: todayKey },
   ];
 
-/** Earlier date first. Typing 18 then 16 still becomes 16 → 18. */
 export function normalizeRange(from: string, to: string): { from: string; to: string } {
   if (from && to && from > to) {
     return { from: to, to: from };
@@ -38,7 +37,6 @@ export function queryRange(range: DateRange): { from: string; to: string } {
   return { from: range.from, to: range.to };
 }
 
-/** Inclusive day count, or null while a date input is empty. */
 export function rangeDays(range: DateRange): number | null {
   const { from, to } = normalizeRange(range.from, range.to);
   const start = Date.parse(`${from}T00:00:00Z`);
@@ -51,10 +49,6 @@ export function rangeDays(range: DateRange): number | null {
   return Math.round((end - start) / 86_400_000) + 1;
 }
 
-/**
- * Date range for the charts and the PDF. Custom dates stay hidden until that
- * pill is on, same as Entries.
- */
 export function ReportRangePicker({
   value,
   onChange,

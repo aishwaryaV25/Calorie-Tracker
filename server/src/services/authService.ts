@@ -45,10 +45,8 @@ export async function signup(input: SignupInput) {
 export async function login(input: LoginInput) {
   const user = await prisma.user.findUnique({ where: { email: input.email } });
 
-  // Hash a throwaway value when the user is missing so that a wrong email and a
-  // wrong password take a comparable amount of time to reject.
   if (!user) {
-    await bcrypt.compare(input.password, `$2a$${SALT_ROUNDS}$${'.'.repeat(53)}`);
+    await bcrypt.compare(input.password, `$2a$${SALT_ROUNDS}$${'.'.repeat(53)}`); // same cost as a real miss
     throw unauthorized('Incorrect email or password.');
   }
 

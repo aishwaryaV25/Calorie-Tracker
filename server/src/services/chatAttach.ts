@@ -434,11 +434,6 @@ interface InterpretedAttach {
   edits?: { row?: number; field?: string; value?: string | number }[];
 }
 
-/**
- * When the user does not name a row and column, the chat model reads the draft
- * JSON (not the file bytes) and says whether they confirmed, cancelled, edited,
- * asked about the draft, or changed the subject.
- */
 export async function interpretAttachMessage(
   pending: PendingAction,
   text: string,

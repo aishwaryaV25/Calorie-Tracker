@@ -13,11 +13,6 @@ interface AuthFormProps {
   mode: 'login' | 'signup';
 }
 
-/**
- * Shared by the login and signup pages: the two differ only by one field and
- * their copy, so keeping them in one component avoids duplicating the submit,
- * error mapping and redirect logic.
- */
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -32,7 +27,6 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState<ApiError | Error | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Someone who is already signed in has no reason to see these pages.
   useEffect(() => {
     if (!isLoading && user) {
       router.replace('/dashboard');
@@ -60,7 +54,6 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
   }
 
-  // Field-level messages are rendered inline, so the banner would be redundant.
   const bannerError =
     error && !(error instanceof ApiError && error.fieldErrors.length > 0) ? error.message : null;
 
@@ -90,7 +83,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                   id="displayName"
                   name="displayName"
                   autoComplete="name"
-                  placeholder="Ramnath"
+                  placeholder="Aishwarya"
                   value={displayName}
                   hasError={Boolean(fieldError('displayName'))}
                   onChange={(event) => setDisplayName(event.target.value)}

@@ -12,20 +12,6 @@ import {
 
 export type { ImportDraftRow };
 
-/**
- * Bulk import of a food diary from a PDF.
- *
- * Two passes, in this order, because an LLM call is slower and metered:
- *
- *   1. Script — extract the text, try the table shapes a diary usually has.
- *   2. Gemini — only when the user asks. The PDF itself is sent, so a scan or
- *      a renamed-column export that the script missed can still be read.
- *
- * Nothing is written until `commitImport`. The preview is a draft the user
- * edits; saving it is what creates the entries, which then show up in Today,
- * Entries and Reports like anything else logged by hand.
- */
-
 export type ImportMethod = 'script' | 'gemini';
 
 export interface ImportPreview {

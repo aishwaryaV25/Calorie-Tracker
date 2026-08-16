@@ -1,10 +1,3 @@
-/**
- * Signs in, seeds a diary, and screenshots every signed-in page so UI layout
- * can be checked against a real browser instead of guessing from code.
- *
- * Usage: npm run visual:check
- * Expects the Next app on :3000 and the API on :4000.
- */
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +26,6 @@ function escapePdfText(text) {
   return text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 }
 
-/** Minimal one-page PDF whose extracted text the import parser can read. */
 function buildDiaryPdf(lines) {
   const streamBody = [
     'BT',
@@ -97,7 +89,7 @@ async function seedAccount() {
   const email = `visual.${Date.now()}@example.com`;
   const { token } = await api('/auth/signup', {
     method: 'POST',
-    body: { email, password: 'password123', displayName: 'Aishee' },
+    body: { email, password: 'password123', displayName: 'Aishwarya' },
   });
 
   const today = todayKey();

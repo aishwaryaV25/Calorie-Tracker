@@ -51,7 +51,6 @@ interface GoalProgressProps {
   actual: { calories: number; proteinGrams: number; carbGrams: number; fatGrams: number };
 }
 
-/** Compact strip: today's intake against the targets currently in force. */
 export function GoalProgress({ target, actual }: GoalProgressProps) {
   const rows: RingRow[] = [
     {

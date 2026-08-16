@@ -2,13 +2,6 @@ import { config } from '../config.js';
 import type { ChatMessage, CompletionResult, ToolDefinition } from './ai-client.js';
 import { badRequest, serviceUnavailable } from './errors.js';
 
-/**
- * The Gemini client.
- *
- * Chat and PDF Deep Analyse share this file. Photos stay on Groq
- * (`createCompletion`) so a long conversation cannot spend the vision quota.
- */
-
 const REQUEST_TIMEOUT_MS = 60_000;
 const CHAT_TIMEOUT_MS = 20_000;
 const CAPACITY_RETRY_MS = 800;
@@ -31,14 +24,13 @@ export interface GeminiPart {
 
 export interface GeminiRequest {
   parts: GeminiPart[];
-  /** Caps the reply. A long diary can need a few thousand tokens of JSON. */
+
   maxTokens?: number;
   rejectionMessage?: string;
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Busy, retired, or unknown-to-this-key — try the next Flash id. */
 export function shouldTryNextGeminiModel(status: number, body: string): boolean {
   return (
     status === 503 ||
@@ -110,10 +102,6 @@ export async function generateGeminiJson(request: GeminiRequest): Promise<string
   return stripped;
 }
 
-/**
- * Chat completions against Gemini's OpenAI-compatible endpoint. Photos stay on
- * Groq (`createCompletion`); this path is text and tools only.
- */
 export async function createChatCompletion(request: {
   messages: ChatMessage[];
   tools?: ToolDefinition[];
@@ -150,8 +138,7 @@ export async function createChatCompletion(request: {
           model,
           messages,
           temperature: request.temperature ?? 0.5,
-          // Gemini 3.x thinks at "medium" unless told otherwise — that is the
-          // 10–20s hang. "none" is rejected on 3.x; "minimal" is the floor.
+
           reasoning_effort: 'minimal',
           ...(request.maxTokens ? { max_tokens: request.maxTokens } : {}),
           ...(request.tools ? { tools: request.tools } : {}),

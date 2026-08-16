@@ -80,7 +80,7 @@ export function Field({ label, htmlFor, error, hint, required, children }: Field
       </label>
       {children}
       {hint && !error && <p className="text-xs text-subtle">{hint}</p>}
-      {/* Announced to screen readers when validation fails after a submit. */}
+      {}
       {error && (
         <p role="alert" className="text-xs text-danger">
           {error}
@@ -169,7 +169,6 @@ export function Alert({ tone = 'error', children }: { tone?: 'error' | 'warning'
   );
 }
 
-/** Placeholder shown while a section loads, sized to avoid layout shift. */
 export function Skeleton({ className }: { className?: string }) {
   return <div className={cx('animate-pulse rounded-lg bg-surface-raised', className)} />;
 }
@@ -192,10 +191,6 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
-/**
- * Page stepper shared by every paginated list. Props mirror the API's `meta`
- * object field for field, so callers can spread it straight in.
- */
 export function Pagination({
   page,
   totalPages,

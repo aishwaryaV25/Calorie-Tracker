@@ -13,11 +13,6 @@ export const notFoundHandler: RequestHandler = (req, res) => {
   });
 };
 
-/**
- * Single place where an error becomes an HTTP response. Known Prisma failures
- * are mapped to meaningful statuses; anything unrecognised is logged in full and
- * reported as a 500 so internal details never reach the client.
- */
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof AppError) {
     if (err.statusCode === 429) {
@@ -36,7 +31,6 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
-  // Multer rejects oversized or unexpected uploads before any handler runs.
   if (err instanceof MulterError) {
     const message =
       err.code === 'LIMIT_FILE_SIZE'

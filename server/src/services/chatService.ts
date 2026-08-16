@@ -32,16 +32,6 @@ export interface ChatAttachment {
   mimeType: string;
 }
 
-/**
- * The conversational interface. Anything the app can do through its pages can be
- * done here in words, because the tools in `chatTools` are adapters over the very
- * same services the routes use.
- *
- * Pending choices are echoed by the client rather than stored in the database, so
- * a reload still starts a new conversation, but "which lunch?" does not depend
- * on the model remembering the candidate list.
- */
-
 export interface ChatReply {
   reply: string;
   actions: ChatAction[];
@@ -50,24 +40,12 @@ export interface ChatReply {
   download?: ChatDownload;
 }
 
-/**
- * How many times the model may call tools before it has to answer.
- *
- * Three covers the longest sensible chain — find an entry, change it, read the
- * day back — while keeping the worst case to a handful of provider round trips.
- */
 const MAX_TOOL_ROUNDS = 5;
 
-/** A runaway model cannot write more than this many rows in a single turn. */
 const MAX_TOOL_CALLS = 8;
 
-/** A short paragraph plus one tool-call payload. Thinking is pinned to minimal. */
 const MAX_REPLY_TOKENS = 800;
 
-/**
- * Warmer than the extraction prompt, which wants the same numbers every time, but
- * still low: this assistant reports figures rather than writing prose.
- */
 const TEMPERATURE = 0.5;
 
 function firstNameOf(displayName: string): string {
@@ -106,10 +84,6 @@ VOICE
 Write the way a good product assistant writes: warm, clear, and professional. Not stiff, not slangy. Use their name when it is natural — a greeting or a check-in — not in every sentence. A short paragraph is fine. No markdown tables. Round energy and macros to whole numbers. After a write, say what was saved in ordinary language.`;
 }
 
-/**
- * Runs one turn of the conversation to completion, including any tool calls the
- * model makes along the way.
- */
 export async function respond(
   userId: string,
   input: ChatRequestInput,
@@ -237,8 +211,6 @@ async function runTurn(
       return { reply: orFallback(completion.content), actions, conversationId, pendingAction: null, download };
     }
 
-    // The assistant's own turn has to go back verbatim, tool calls included: a
-    // tool result with no matching call is rejected by the provider.
     messages.push({
       role: 'assistant',
       content: completion.content,
@@ -288,11 +260,6 @@ async function runTurn(
   return { reply: await forceAnswer(messages), actions, conversationId, pendingAction: null, download };
 }
 
-/**
- * Asked for a reply once the tool rounds are used up. Tools are withheld from this
- * call, so the model has to answer from what it already gathered rather than
- * looping further.
- */
 async function forceAnswer(messages: ChatMessage[]): Promise<string> {
   const completion = await createChatCompletion({
     messages: [
@@ -310,30 +277,16 @@ async function forceAnswer(messages: ChatMessage[]): Promise<string> {
   return orFallback(completion.content);
 }
 
-/**
- * Never lets an empty reply out.
- *
- * Beyond the blank bubble it would put on screen, the client keeps the transcript
- * and sends it back next turn, where a message with no content is rejected — so
- * one empty reply would otherwise break the rest of the conversation.
- */
 const orFallback = (content: string | null): string => content?.trim() || FALLBACK_REPLY;
 
-/** Stands in for the model's own words when it never got to write them. */
 function describeActions(actions: ChatAction[]): string {
   const done = actions.map((action) => action.label).join('. ');
 
   return `${done}. The assistant could not finish its reply because the AI service is busy, but those changes were saved.`;
 }
 
-/** Shown when the model returns an empty message, which a reasoning model can do. */
 const FALLBACK_REPLY = "I couldn't put together an answer for that. Try rephrasing it.";
 
-/**
- * Shown when the provider refuses the request. On this path that means the model
- * produced something invalid — a tool call it could not express as JSON — and one
- * retry has already been spent, so the user's best move is to say it differently.
- */
 const REJECTION_MESSAGE = "I couldn't act on that. Try rephrasing it, or say it in smaller steps.";
 
 async function answerAside(messages: ChatRequestInput['messages'], firstName: string, today: string): Promise<string> {

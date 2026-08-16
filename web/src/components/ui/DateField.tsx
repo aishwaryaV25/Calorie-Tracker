@@ -19,10 +19,6 @@ function parseKey(value: string): Date {
   return parseISO(`${value || todayKey()}T00:00:00`);
 }
 
-/**
- * Themed month calendar. Native date pickers are OS chrome and cannot follow
- * the cream / ink / red palette.
- */
 export function DateField({
   id,
   value,
@@ -209,7 +205,6 @@ export function DateField({
   );
 }
 
-/** Date plus time, still one `YYYY-MM-DDTHH:mm` value for the forms. */
 export function DateTimeField({
   id,
   value,

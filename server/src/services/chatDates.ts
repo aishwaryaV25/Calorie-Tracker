@@ -25,10 +25,6 @@ export interface DateRange {
 export const REPORT_PERIODS = ['last_week', 'this_week', 'last_7_days', 'this_month', 'last_month'] as const;
 export type ReportPeriod = (typeof REPORT_PERIODS)[number];
 
-/**
- * The window a PDF report should cover. Named dates win; otherwise a period;
- * otherwise the previous ISO week — "give me a report" with no dates.
- */
 export function resolveReportWindow(input: {
   today: string;
   from?: string;
@@ -79,10 +75,6 @@ function asDateKey(value?: string): string | undefined {
   return candidate;
 }
 
-/**
- * Turns a spoken day or window into YYYY-MM-DD keys, anchored on the caller's
- * own calendar day. The model is not asked to do this arithmetic.
- */
 export function resolveDateRange(text: string, today: string): DateRange | null {
   const day = resolveDate(text, today);
   if (day) {
@@ -179,7 +171,6 @@ function lastWeekday(text: string, today: string): string | null {
   return toDateKey(addDays(current, -delta));
 }
 
-/** "august 14" or "14 august", using the year of `today` unless that day is still ahead. */
 function namedCalendarDay(text: string, today: string): string | null {
   const match =
     text.match(

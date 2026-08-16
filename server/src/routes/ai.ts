@@ -18,7 +18,6 @@ export const aiRouter = Router();
 aiRouter.use(authenticate);
 aiRouter.use(rateLimit({ name: 'ai', max: 20, windowMs: 60_000 }));
 
-/** Lets the client hide or disable AI features when the matching key is missing. */
 aiRouter.get('/status', (_req, res) => {
   res.json({
     available: isAiConfigured(),
@@ -28,11 +27,6 @@ aiRouter.get('/status', (_req, res) => {
   });
 });
 
-/**
- * Analyses a nutrition label or a photo of a meal and returns a draft entry.
- * The result is deliberately not saved: the user confirms or corrects the
- * numbers in the form first.
- */
 aiRouter.post(
   '/extract',
   uploadImage,
@@ -52,12 +46,6 @@ aiRouter.post(
   }),
 );
 
-/**
- * One turn of the conversational interface. The whole transcript is sent each
- * time and nothing is stored, so this route holds no session of its own.
- * An optional photo or PDF is read by the extract / import services and is
- * never forwarded to the chat model.
- */
 aiRouter.post(
   '/chat',
   parseChatUpload,
@@ -78,10 +66,6 @@ aiRouter.post(
   }),
 );
 
-/**
- * The floating diet buddy. Same Gemini key as chat; read-only tools only.
- * Transcript is sent each turn and nothing is stored.
- */
 aiRouter.post(
   '/diet-bot',
   dietBotValidators,

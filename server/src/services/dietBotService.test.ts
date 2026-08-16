@@ -48,13 +48,13 @@ describe('diet bot', () => {
 
     const prompt = buildDietBotPrompt({
       today: '2026-08-16',
-      firstName: 'Ram',
+      firstName: 'Aishwarya',
       page: '/dashboard',
       snapshot,
     });
 
     assert.match(prompt, /Bite/);
-    assert.match(prompt, /Ram/);
+    assert.match(prompt, /Aishwarya/);
     assert.match(prompt, /1400 kcal/);
     assert.match(prompt, /Eggs/);
     assert.match(prompt, /cannot log/i);

@@ -20,12 +20,6 @@ export const authenticate: RequestHandler = (req, _res, next) => {
   }
 };
 
-/**
- * Reads the authenticated user off the request. Every query in the service layer
- * is scoped by this id, which is what keeps one user's data invisible to another.
- * Throwing rather than returning undefined means a route accidentally mounted
- * without `authenticate` fails loudly instead of leaking data.
- */
 export function requireUser(req: Request): TokenPayload {
   if (!req.user) {
     throw unauthorized('This route requires an authenticated user.');

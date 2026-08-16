@@ -3,10 +3,6 @@
 import { formatAmount } from '@/lib/format';
 import type { MicronutrientRow } from '@/lib/types';
 
-/**
- * Vitamin and mineral totals for the range. Amounts stay in the unit the API
- * reports for each nutrient (mg or µg), so nothing is silently rescaled.
- */
 export function MicronutrientTable({ rows, days }: { rows: MicronutrientRow[]; days: number }) {
   if (rows.length === 0) {
     return (
@@ -19,7 +15,7 @@ export function MicronutrientTable({ rows, days }: { rows: MicronutrientRow[]; d
 
   return (
     <table className="w-full text-sm">
-      {/* First child to keep the markup valid; `caption-bottom` puts it under the rows. */}
+      {}
       <caption className="caption-bottom pt-3 text-left text-xs text-subtle">
         Averaged over all {days} days in the range, including days with nothing logged.
       </caption>

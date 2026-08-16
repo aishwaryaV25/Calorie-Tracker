@@ -74,7 +74,6 @@ async function tokenFromPage(page: Page) {
   return token;
 }
 
-/** Today’s h1 is the weekday, not the word “Today”. */
 async function expectToday(page: Page) {
   await expect(page.locator('aside').getByRole('link', { name: 'Today' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add entry' })).toBeVisible();
@@ -152,8 +151,7 @@ async function logMeal(
   await page.locator('#fatGrams').fill(fields.fat);
   await expect(page.getByRole('button', { name: 'Add meal' })).toBeEnabled();
   await page.getByRole('button', { name: 'Add meal' }).click();
-  // The success banner stays on the page after the first save, so the cleared
-  // food name is what proves this meal reached the database.
+
   await expect(page.locator('#foodName')).toHaveValue('');
   await expect(page.getByText('Saved. Keep going or review the day.')).toBeVisible();
 }

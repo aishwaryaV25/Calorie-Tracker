@@ -8,7 +8,6 @@ interface ChatComposerProps {
   onSend: (message: string, file?: File) => void;
 }
 
-/** Matches the server's per-message limit, so an over-long message is caught here. */
 const MAX_LENGTH = 2_000;
 const ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf';
 
@@ -151,7 +150,6 @@ function PlusIcon() {
   );
 }
 
-/** The usual send mark — a paper plane pointing right. */
 function SendIcon() {
   return (
     <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden>

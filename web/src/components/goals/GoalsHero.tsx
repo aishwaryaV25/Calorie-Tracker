@@ -5,10 +5,6 @@ import gsap from 'gsap';
 import { formatCalories, formatDateKey, formatGrams } from '@/lib/format';
 import type { Goal } from '@/lib/types';
 
-/**
- * Portrait film column. Holds the saved target; the desk beside it is
- * where the numbers change. Autoplay is muted and skipped when motion is reduced.
- */
 export function GoalsHero({
   firstName,
   goal,
@@ -33,7 +29,7 @@ export function GoalsHero({
     }
 
     void video.play().catch(() => {
-      /* Autoplay can be blocked; the still frame is enough. */
+
     });
 
     const drift = gsap.to(video, {

@@ -1,7 +1,3 @@
-/**
- * HTTP regression against Postgres. Uses DATABASE_URL / DIRECT_URL from the
- * environment (Neon locally, the CI Postgres service in GitHub Actions).
- */
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';

@@ -1,10 +1,5 @@
 import { format, parseISO } from 'date-fns';
 
-/**
- * Days are UTC calendar days on the server, so date-only strings are formatted
- * without applying the browser's timezone. Parsing "2026-08-15" as a local date
- * would shift it a day for anyone west of UTC.
- */
 export const formatDateKey = (dateKey: string, pattern = 'd MMM') =>
   format(parseISO(`${dateKey}T00:00:00`), pattern);
 
@@ -15,13 +10,7 @@ export const formatClock = (isoTimestamp: string) => format(parseISO(isoTimestam
 export const formatDateTime = (isoTimestamp: string) =>
   format(parseISO(isoTimestamp), 'd MMM, HH:mm');
 
-/**
- * The day key for a Date, read off the user's own calendar.
- *
- * Deliberately not `toISOString().slice(0, 10)`, which gives the UTC day: at
- * 00:30 in Delhi that returns yesterday, so "Today" would filter to the wrong
- * date and a meal logged after midnight would be counted against the day before.
- */
+// Local Y-M-D. toISOString() is UTC and shifts after midnight in India.
 export const toDateKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
     date.getDate(),
@@ -35,7 +24,6 @@ export function daysAgoKey(days: number): string {
   return toDateKey(date);
 }
 
-/** Whole numbers for calories; nobody needs 412.37 kcal. */
 export const formatCalories = (value: number) => Math.round(value).toLocaleString();
 
 export const formatGrams = (value: number) =>

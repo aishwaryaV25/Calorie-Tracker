@@ -4,10 +4,6 @@ import { useState } from 'react';
 import { Button, Input, Select } from '@/components/ui';
 import { MICRONUTRIENT_KEYS, MICRONUTRIENTS, type Micronutrient } from '@/lib/types';
 
-/**
- * Assignment meal entries include micronutrients. This is the field the user
- * fills, not a read-only chip list after AI has run.
- */
 export function MicronutrientFields({
   idPrefix,
   value,

@@ -27,10 +27,6 @@ const toWeightDto = (row: WeightLog): WeightDto => ({
   createdAt: row.createdAt.toISOString(),
 });
 
-/**
- * One reading per calendar day. A second save on the same day replaces the
- * first so the chart stays a single line.
- */
 export async function logWeight(userId: string, input: CreateWeightInput): Promise<WeightDto> {
   const loggedOn = input.loggedOn ? fromDateKey(input.loggedOn) : startOfUtcDay(new Date());
   const note = input.note?.trim() ? input.note.trim() : null;

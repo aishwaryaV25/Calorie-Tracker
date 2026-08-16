@@ -5,10 +5,6 @@ import gsap from 'gsap';
 import { Button } from '@/components/ui';
 import { openBite } from '@/lib/open-bite';
 
-/**
- * Product-film panel for Bite: a turning red orb and a short ask.
- * Opens the same floating buddy — it does not start a second chat.
- */
 export function BiteSpotlight({ firstName }: { firstName: string }) {
   const stageRef = useRef<HTMLDivElement>(null);
 

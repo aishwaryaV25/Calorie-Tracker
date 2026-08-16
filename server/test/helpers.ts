@@ -91,7 +91,6 @@ export function escapePdfText(text: string) {
   return text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 }
 
-/** Minimal one-page PDF whose extracted text the import parser can read. */
 export function buildDiaryPdf(lines: string[]) {
   const streamBody = [
     'BT',

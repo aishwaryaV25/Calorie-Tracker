@@ -4,7 +4,6 @@ import { paginationValidators } from '../lib/pagination.js';
 
 const MAX_MICRONUTRIENTS = 40;
 
-/** Nutrition amounts are non-negative, with a ceiling that catches typos. */
 const amountField = (path: string, label: string, optional: boolean) => {
   const chain = body(path);
   return (optional ? chain.optional() : chain)
@@ -13,10 +12,6 @@ const amountField = (path: string, label: string, optional: boolean) => {
     .toFloat();
 };
 
-/**
- * Micronutrients are always an optional array; when present, each element must be
- * complete. The `*` wildcard applies the rules to every item in the array.
- */
 const micronutrientValidators: ValidationChain[] = [
   body('micronutrients')
     .optional()
@@ -62,17 +57,14 @@ const coreEntryValidators = (optional: boolean): ValidationChain[] => {
     amountField('proteinGrams', 'Protein', true),
     amountField('carbGrams', 'Carbohydrates', true),
     amountField('fatGrams', 'Fat', true),
-    // Left optional rather than given a default: a chain is built once at import
-    // time, so a "now" default would freeze to the moment the server started.
-    // The service fills in the current time instead.
+
     body('consumedAt')
       .optional()
       .isISO8601()
       .withMessage('consumedAt must be an ISO date or date-time.')
       .toDate(),
-    // Kept as a plain string rather than coerced to a Date: it is a calendar
-    // day, and parsing it into an instant is exactly the mistake this field
-    // exists to avoid.
+
+    // Keep as YYYY-MM-DD. Parsing to Date here would pick a timezone.
     body('consumedOn')
       .optional()
       .matches(/^\d{4}-\d{2}-\d{2}$/)
@@ -88,10 +80,6 @@ export const createEntryValidators = coreEntryValidators(false);
 
 const MAX_BATCH = 20;
 
-/**
- * Several entries in one request, used when a photographed plate is saved as
- * one row per food. Same field rules as a single create.
- */
 export const createEntriesBatchValidators = [
   body('entries')
     .isArray({ min: 1, max: MAX_BATCH })
@@ -125,11 +113,6 @@ export const createEntriesBatchValidators = [
   body('source').optional().isIn(['manual', 'image']),
 ];
 
-/**
- * Every field is optional for a patch. The "at least one field" rule lives in the
- * service instead of here, because it has to be judged against the sanitised
- * result: a body containing only unrecognised keys is still an empty update.
- */
 export const updateEntryValidators = coreEntryValidators(true);
 
 export const listEntriesValidators = [

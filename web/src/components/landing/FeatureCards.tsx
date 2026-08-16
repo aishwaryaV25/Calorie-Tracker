@@ -85,10 +85,6 @@ function overshoot(origin: Origin, variance: number) {
   return { x, y };
 }
 
-/**
- * One scrubbed sequence: each card is already travelling while the
- * previous one settles. Scroll progress owns the timeline — no delays.
- */
 export function FeatureCards() {
   const stageRef = useRef<HTMLUListElement>(null);
 

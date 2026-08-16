@@ -23,15 +23,6 @@ import {
   resolveRange,
 } from './reportsService.js';
 
-/**
- * The downloadable nutrition report.
- *
- * Everything in it comes from the same report services the charts on screen use,
- * so the document cannot disagree with the app; this module only decides what to
- * include and in which order. The layout primitives live in `lib/pdf`.
- */
-
-/** A month of days is the most that stays readable as a chart and a table. */
 const MAX_DAYS_CHARTED = 366;
 const MAX_WEEKS = 53;
 const MAX_MICRONUTRIENTS = 30;
@@ -45,8 +36,7 @@ export async function buildReportPdf(
   userId: string,
   query: ReportRangeQuery,
 ): Promise<ReportPdf> {
-  // Resolved up front so the filename and the heading describe the same range the
-  // sections were built from, including the default window when none was given.
+
   const { from, to } = resolveRange(query);
   const range = { from, to, page: 1, pageSize: MAX_DAYS_CHARTED };
 
@@ -62,8 +52,6 @@ export async function buildReportPdf(
   const doc = createDocument('Nutrition report');
   const pending = toBuffer(doc);
 
-  // Both reports come back newest first, which suits a screen you scroll. A
-  // document is read from the top down, so everything here runs oldest first.
   const days = [...daily.data].reverse();
   const weeks = [...weekly.data].reverse();
   const { range: dates } = comparison;
@@ -120,7 +108,7 @@ function writeSummary(doc: Document, comparison: Comparison, nutrients: number) 
       label: 'Of target',
       value: adherence ? `${formatNumber(adherence.calories)}%` : '—',
       note: adherence ? describeAdherence(adherence.calories) : 'set a goal to compare',
-      // Over target is the case worth spotting at a glance.
+
       isAlert: Boolean(adherence && adherence.calories > 100),
     },
   ]);
@@ -154,7 +142,6 @@ function writeGoalComparison(doc: Document, comparison: Comparison) {
   ]);
 }
 
-/** One meter comparing an actual total against the total that was targeted. */
 function row(label: string, actual: number, target: number, unit: string) {
   return {
     label,
@@ -166,15 +153,13 @@ function row(label: string, actual: number, target: number, unit: string) {
 function writeDailyChart(doc: Document, days: Daily, comparison: Comparison) {
   sectionTitle(doc, 'Daily calories');
 
-  // An axis with no bars on it says less than a sentence does.
   if (days.every((day) => day.entryCount === 0)) {
     paragraph(doc, 'No entries fall inside this range.');
     return;
   }
 
   const bars: Bar[] = days.map((day) => ({
-    // Only the day of the month: a full date under every bar is unreadable, and
-    // the range is already stated at the top of the report.
+
     label: day.date.slice(8),
     value: day.calories,
     isOver: Boolean(day.goal && day.calories > day.goal.dailyCalories),
@@ -214,8 +199,7 @@ const macroRow = (label: string, grams: number, share: number) => ({
 });
 
 function writeWeekly(doc: Document, weeks: Weekly) {
-  // Weeks with nothing in them would be rows of zeros; the gaps in the chart
-  // above already say when nothing was logged.
+
   const logged = weeks.filter((week) => week.daysLogged > 0);
 
   if (logged.length === 0) {
@@ -317,10 +301,8 @@ const describeAdherence = (percentage: number): string => {
   return 'on target';
 };
 
-/** Whole numbers with thousands separators: nutrition figures need no decimals. */
 const formatNumber = (value: number): string => Math.round(value).toLocaleString('en-GB');
 
-/** "2026-08-15" as "15 Aug 2026", read as a calendar day rather than an instant. */
 function formatDate(dateKey: string): string {
   return new Date(`${dateKey}T00:00:00Z`).toLocaleDateString('en-GB', {
     day: 'numeric',

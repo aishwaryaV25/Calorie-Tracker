@@ -12,10 +12,6 @@ interface EntriesTableProps {
   onDelete: (entry: FoodEntry) => void;
 }
 
-/**
- * Stacked cards on small screens and a full table on large ones. Micros stay
- * visible because the assignment includes them, even though the mock hid them.
- */
 export function EntriesTable({ entries, deletingId, onEdit, onDelete }: EntriesTableProps) {
   return (
     <>

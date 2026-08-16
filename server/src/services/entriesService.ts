@@ -37,10 +37,6 @@ export interface EntryDto {
   updatedAt: string;
 }
 
-/**
- * Maps a database row to the API shape. Keeping this in one place means the HTTP
- * response, the chat tool results and the report drill-downs all agree.
- */
 function toEntryDto(entry: EntryRecord): EntryDto {
   return {
     id: entry.id,
@@ -69,10 +65,6 @@ function toEntryDto(entry: EntryRecord): EntryDto {
   };
 }
 
-/**
- * Collapses duplicate nutrient keys (an AI extraction can repeat one) and pins
- * each amount to the canonical unit for that nutrient.
- */
 function normaliseMicronutrients(input: MicronutrientInput[] = []) {
   const byKey = new Map<string, { nutrient: string; amount: number; unit: string }>();
 
@@ -87,18 +79,11 @@ function normaliseMicronutrients(input: MicronutrientInput[] = []) {
   return [...byKey.values()];
 }
 
-/**
- * Builds the filter for a list query. `userId` is applied here rather than by the
- * caller so no list path can accidentally read across users.
- */
 function buildEntryFilter(userId: string, query: ListEntriesQuery): Prisma.FoodEntryWhereInput {
   const where: Prisma.FoodEntryWhereInput = { userId };
 
   if (query.from || query.to) {
-    // Matched against the day the entry was assigned to, not its timestamp, so
-    // the rows returned for "15 August" are exactly the rows the list shows
-    // under that date. Filtering on the instant instead would drop a late-night
-    // entry whose UTC time has already rolled into the next day.
+
     where.consumedOn = {
       ...(query.from ? { gte: startOfUtcDay(query.from) } : {}),
       ...(query.to ? { lte: startOfUtcDay(query.to) } : {}),
@@ -123,8 +108,6 @@ export async function listEntries(
   const where = buildEntryFilter(userId, query);
   const { skip, take } = toSkipTake(query);
 
-  // The totals describe the whole filtered range, not just the current page,
-  // which is what makes the number useful next to a paginated table.
   const [rows, totalItems, sums] = await Promise.all([
     prisma.foodEntry.findMany({
       where,
@@ -164,20 +147,10 @@ export async function getEntry(userId: string, id: string): Promise<EntryDto> {
   return toEntryDto(entry);
 }
 
-/**
- * Which calendar day an entry counts towards. The client knows the eater's time
- * zone and says so; without that the UTC day of the timestamp is the best guess
- * available, which is right for a UTC client and for anyone logging mid-morning.
- */
 function resolveConsumedOn(input: { consumedOn?: string }, consumedAt: Date): Date {
   return input.consumedOn ? fromDateKey(input.consumedOn) : startOfUtcDay(consumedAt);
 }
 
-/**
- * Fills in the values the validators leave out. `consumedAt` defaults here rather
- * than in the validation chain because a chain is built once when the module is
- * imported, so a "now" default there would freeze at server start-up.
- */
 function buildCreateData(userId: string, input: CreateEntryInput, source: EntrySource) {
   const consumedAt = input.consumedAt ?? new Date();
 
@@ -212,10 +185,6 @@ export async function createEntry(
   return toEntryDto(entry);
 }
 
-/**
- * Creates many entries in one transaction, used by the PDF import: a partially
- * imported diary is worse than a failed import the user can retry.
- */
 export async function createEntries(
   userId: string,
   inputs: CreateEntryInput[],
@@ -242,8 +211,6 @@ export async function updateEntry(
     throw badRequest('Provide at least one field to update.');
   }
 
-  // Verifies ownership before writing: `update` alone matches on primary key and
-  // would happily modify another user's row.
   await assertEntryExists(userId, id);
 
   const { micronutrients, consumedAt, consumedOn, notes, ...rest } = input;
@@ -256,13 +223,11 @@ export async function updateEntry(
         ? { notes: notes.trim() ? notes.trim().slice(0, 500) : null }
         : {}),
       ...(consumedAt ? { consumedAt } : {}),
-      // The day moves when either the timestamp or the day itself changes, and
-      // an explicit `consumedOn` always wins over one inferred from the instant.
+
       ...(consumedOn || consumedAt
         ? { consumedOn: resolveConsumedOn({ consumedOn }, consumedAt ?? new Date()) }
         : {}),
-      // Micronutrients are replaced wholesale rather than merged, so the payload
-      // the client sends is exactly what it gets back.
+
       ...(micronutrients
         ? {
             micronutrients: {

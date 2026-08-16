@@ -33,10 +33,6 @@ function readOptions(children: ReactNode): Option[] {
   });
 }
 
-/**
- * Themed listbox. Native <select> menus follow the OS and cannot pick up
- * cream / ink / red, so every dropdown in the app goes through this instead.
- */
 export function Select({
   id,
   value,

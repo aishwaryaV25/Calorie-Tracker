@@ -20,8 +20,7 @@ export const createGoalValidators = [
     .isFloat({ gt: 0, max: 500 })
     .withMessage('Target weight must be between 0 and 500 kg.')
     .toFloat(),
-  // Optional rather than defaulted for the same reason as `consumedAt`: the
-  // chain is constructed once at import, so the service applies "today".
+
   body('effectiveFrom')
     .optional()
     .isISO8601()
@@ -31,11 +30,6 @@ export const createGoalValidators = [
 
 export const listGoalsValidators = paginationValidators;
 
-/**
- * Which day to read the targets for. A calendar day rather than a timestamp,
- * because the answer differs either side of midnight and only the client knows
- * where that midnight falls.
- */
 export const currentGoalValidators = [
   query('date')
     .optional()

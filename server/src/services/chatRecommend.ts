@@ -10,11 +10,6 @@ export interface RemainingNutrition {
   remaining: { calories: number; proteinGrams: number; carbGrams: number; fatGrams: number };
 }
 
-/**
- * Common plate-sized suggestions. These are not the user's diary — they are a
- * short list the assistant can offer after remaining macros have been computed
- * from the database.
- */
 const SUGGESTIONS = [
   { foodName: 'Greek yogurt', quantity: 200, unit: 'g', calories: 130, proteinGrams: 20, carbGrams: 8, fatGrams: 4 },
   { foodName: 'Chicken breast', quantity: 150, unit: 'g', calories: 248, proteinGrams: 46, carbGrams: 0, fatGrams: 5 },

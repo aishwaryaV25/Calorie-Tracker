@@ -23,14 +23,6 @@ const TOOLTIP_STYLE = {
   boxShadow: '0 4px 16px rgb(17 17 19 / 0.08)',
 };
 
-/**
- * Goal versus actual for the whole range.
- *
- * The bars show each total as a percentage of its target rather than raw
- * amounts: calories run in the thousands while macros run in the tens, so a
- * shared axis would flatten the macro bars to nothing. The dashed line marks
- * 100%, and the exact numbers sit in the table underneath.
- */
 export function GoalComparisonChart({ comparison }: { comparison: GoalComparison }) {
   if (!comparison.hasGoal || !comparison.adherence) {
     return (
@@ -67,7 +59,6 @@ export function GoalComparisonChart({ comparison }: { comparison: GoalComparison
     },
   ];
 
-  // Keeps the 100% line inside the plot even when every total is well under it.
   const upperBound = Math.max(120, ...metrics.map((metric) => Math.ceil(metric.percent / 10) * 10));
 
   return (

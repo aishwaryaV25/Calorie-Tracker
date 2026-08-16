@@ -19,10 +19,6 @@ const COPY = {
   },
 } as const;
 
-/**
- * One 200KB still, sized by Next for the column. Motion is a slow Ken Burns
- * on this image — a second clip on top is what made the film look doubled.
- */
 export function AuthFilm({ mode }: { mode: 'login' | 'signup' }) {
   const copy = COPY[mode];
 

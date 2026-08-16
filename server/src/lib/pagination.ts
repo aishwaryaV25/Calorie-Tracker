@@ -4,10 +4,6 @@ import type { PaginationQuery } from '../types/dto.js';
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
-/**
- * Reused by every list endpoint so pagination behaves identically across the API.
- * Page numbers are 1-based because they are shown directly in the UI.
- */
 export const paginationValidators = [
   query('page').default(1).isInt({ min: 1 }).withMessage('page must be 1 or greater.').toInt(),
   query('pageSize')

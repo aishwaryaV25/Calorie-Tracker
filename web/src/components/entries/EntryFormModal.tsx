@@ -10,11 +10,10 @@ interface EntryFormModalProps {
   defaultMealType?: MealType;
   isAiAvailable: boolean;
   onClose: () => void;
-  /** Receives the saved entry so callers can report what changed. */
+
   onSaved: (entry: FoodEntry) => void;
 }
 
-/** Dialog wrapper around the shared entry form, used from the dashboard. */
 export function EntryFormModal({
   entry,
   defaultMealType = 'breakfast',
@@ -30,7 +29,7 @@ export function EntryFormModal({
     };
 
     window.addEventListener('keydown', onKeyDown);
-    // Stops the page behind the dialog from scrolling.
+
     document.body.style.overflow = 'hidden';
 
     return () => {
@@ -46,8 +45,7 @@ export function EntryFormModal({
       aria-modal="true"
       aria-label={entry ? 'Edit entry' : 'Add entry'}
       onMouseDown={(event) => {
-        // Only a press that starts and ends on the backdrop closes the dialog, so
-        // dragging out of the panel does not discard a half-filled form.
+
         if (event.target === event.currentTarget) {
           onClose();
         }

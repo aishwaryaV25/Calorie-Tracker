@@ -4,11 +4,6 @@ import { MAX_IMPORT_ROWS } from '../services/pdfImportParser.js';
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
-/**
- * The caller's calendar day, sent with both the parse and the save so "today"
- * and a row with no date land on the day the user is having, not the server's
- * UTC day.
- */
 export const importTodayValidators = [
   body('today')
     .matches(DATE_KEY)
@@ -31,10 +26,6 @@ const amount = (path: string, label: string) =>
     .withMessage(`${label} must be a number between 0 and 100000.`)
     .toFloat();
 
-/**
- * The rows the user confirmed in the preview. Validated to the same bounds as a
- * hand-typed entry, so an import cannot write numbers the form would reject.
- */
 export const importCommitValidators = [
   ...importTodayValidators,
   body('rows')

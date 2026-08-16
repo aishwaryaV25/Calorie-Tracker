@@ -16,7 +16,7 @@ export interface PendingAction {
   kind: PendingKind;
   originalRequest: string;
   candidates: EntryRef[];
-  /** Fields to PATCH after the user picks a row. */
+
   patch?: {
     foodName?: string;
     mealType?: MealType;
@@ -27,9 +27,9 @@ export interface PendingAction {
     carbGrams?: number;
     fatGrams?: number;
   };
-  /** Photo extract draft. Echoed by the client; never written to the database. */
+
   extract?: ExtractionResult;
-  /** PDF import draft rows. Echoed by the client; nothing is saved until they confirm. */
+
   importRows?: ImportDraftRow[];
   expiresAt: string;
 }

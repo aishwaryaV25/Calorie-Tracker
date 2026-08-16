@@ -2,7 +2,6 @@ import Image from 'next/image';
 
 export type FeatureArt = 'plate' | 'photo' | 'gauge' | 'chart' | 'pdf' | 'chat';
 
-/** Product-style panel that fills the top of a feature card. */
 export function FeatureVisual({ kind }: { kind: FeatureArt }) {
   return (
     <div

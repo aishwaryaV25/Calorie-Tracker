@@ -38,10 +38,6 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/**
- * Chrome for every signed-in page. Wide screens get a left sidebar; smaller
- * screens keep the same links in a compact top bar.
- */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();

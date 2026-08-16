@@ -12,13 +12,6 @@ const TOOLTIP_STYLE = {
   boxShadow: '0 4px 16px rgb(17 17 19 / 0.08)',
 };
 
-/**
- * Share of energy from each macro as a donut, with the grams alongside.
- *
- * The slices use the percentages the API derives from the 4/4/9 kcal-per-gram
- * convention rather than grams, because equal grams of fat and protein are not
- * equal slices of a day's energy.
- */
 export function MacroBreakdownChart({ breakdown }: { breakdown: MacroBreakdown }) {
   const slices = [
     {

@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 
-/** Stroke icons used in the signed-in sidebar. */
 export function NavIcon({
   name,
   className = 'size-4',

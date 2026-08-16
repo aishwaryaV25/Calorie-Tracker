@@ -1,12 +1,6 @@
 import multer from 'multer';
 import { badRequest } from '../lib/errors.js';
 
-/**
- * Uploads are held in memory rather than written to disk: the files are small,
- * they are forwarded straight to an external API or parsed in-process, and
- * nothing needs to persist afterwards. That also avoids leaving user photos
- * lying around the filesystem.
- */
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
@@ -52,10 +46,6 @@ const uploadChatFile = multer({
   },
 }).single('attachment');
 
-/**
- * Chat accepts either JSON or multipart. The file, when present, is read by the
- * extract or import service and is never forwarded to the chat model.
- */
 export function parseChatUpload(
   req: import('express').Request,
   res: import('express').Response,

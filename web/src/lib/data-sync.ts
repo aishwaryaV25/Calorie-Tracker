@@ -5,10 +5,6 @@ import type { ChatAction } from './types';
 
 const EVENT = 'calorie-data-changed';
 
-/**
- * Chat mutations land in the same database the other pages read. Those pages
- * do not share a cache, so a window event is enough to make them refetch.
- */
 export function notifyDataChanged(actions: ChatAction[]) {
   if (typeof window === 'undefined' || actions.length === 0) {
     return;

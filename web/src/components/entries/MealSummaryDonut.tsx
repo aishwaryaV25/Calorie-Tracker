@@ -2,10 +2,6 @@ import { formatCalories, formatGrams } from '@/lib/format';
 
 const CALORIES_PER_GRAM = { protein: 4, carbs: 4, fat: 9 };
 
-/**
- * Meal-level macro ring. Slices are sized by calories from each macro
- * (fat is 9 kcal/g, protein and carbs are 4). The centre is the logged total.
- */
 export function MealSummaryDonut({
   calories,
   proteinGrams,

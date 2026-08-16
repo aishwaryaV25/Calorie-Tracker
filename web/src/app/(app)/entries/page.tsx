@@ -31,7 +31,6 @@ export default function EntriesPage() {
   const [revision, setRevision] = useState(0);
   const dataRevision = useDataRevision();
 
-  // One request when typing stops, rather than one per keystroke.
   const search = useDebouncedValue(filters.search, 300);
 
   const aiStatus = useAsync(() => api.ai.status(), []);
@@ -66,17 +65,8 @@ export default function EntriesPage() {
   const meta = entries.data?.meta;
   const totals = entries.data?.totals;
 
-  /**
-   * Deleting the last row of the last page leaves the current page beyond the
-   * end of the results: an empty list, and no pager to escape with because the
-   * pager only renders alongside rows.
-   */
   const isPastLastPage = Boolean(meta && meta.totalPages > 0 && page > meta.totalPages);
 
-  /**
-   * Any filter change returns to page one: staying on page 4 of a result set
-   * that now has two pages would show an empty list for no obvious reason.
-   */
   function applyFilters(next: EntryFilterState) {
     setFilters(next);
     setPage(1);
@@ -95,7 +85,6 @@ export default function EntriesPage() {
     try {
       await api.entries.remove(entry.id);
 
-      // Removing the only row on this page would otherwise leave it empty.
       if (rows.length === 1 && page > 1) {
         setPage(page - 1);
       }
@@ -109,10 +98,6 @@ export default function EntriesPage() {
     }
   }
 
-  /**
-   * An edit can move an entry out of the active filters, so it disappears from
-   * the list. Saying so explicitly stops that looking like a failed save.
-   */
   function handleSaved(saved: FoodEntry) {
     setEditingEntry(null);
     setRevision((value) => value + 1);
@@ -220,7 +205,6 @@ export default function EntriesPage() {
           />
         ) : (
           <>
-            {/* Dimmed while a new page loads, so the table does not jump to a skeleton. */}
             <div className={entries.isLoading ? 'opacity-60 transition-opacity' : undefined}>
               <EntriesTable
                 entries={rows}

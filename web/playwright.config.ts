@@ -1,9 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/**
- * Browser regression against the assignment flows.
- * Reuses a local API/web pair when they are already running.
- */
 export default defineConfig({
   testDir: './e2e',
   timeout: 90_000,

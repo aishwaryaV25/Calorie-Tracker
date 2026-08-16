@@ -74,11 +74,6 @@ function guessIntent(goal: Goal | null): Intent | null {
   return match?.id ?? null;
 }
 
-/**
- * Goal editor laid out like the mock. The saved payload is still the assignment
- * fields: daily calories, macros, optional weight, and the day they take effect.
- * Lose / build / maintain only pre-fills those numbers; it is not stored.
- */
 export function GoalComposer({
   currentGoal,
   onSaved,

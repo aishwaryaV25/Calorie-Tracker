@@ -7,7 +7,7 @@ import type { User } from './types';
 
 interface AuthContextValue {
   user: User | null;
-  /** True until the stored token has been checked, so guards do not flash. */
+
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, displayName: string) => Promise<void>;
@@ -21,10 +21,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // A stored token may be expired or revoked, so it is verified against the API
-  // once on mount rather than trusted. The whole check runs inside an async
-  // function so state is only updated from a later tick, never synchronously
-  // during the effect, which would cost an extra render pass.
   useEffect(() => {
     let isCurrent = true;
 
@@ -37,8 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { user: profile } = await api.auth.me();
         return profile;
       } catch (error) {
-        // 429 / network blips are not a revoked session. Only a 401 means
-        // the stored token is no longer valid.
+
         if (error instanceof ApiError && error.status === 401) {
           tokenStorage.clear();
         }
@@ -94,7 +89,6 @@ export function useAuth(): AuthContextValue {
   return context;
 }
 
-/** Turns any thrown value into something safe to render. */
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     return error.message;
