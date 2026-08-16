@@ -1,34 +1,42 @@
 import Image from 'next/image';
-import { cx } from '@/components/ui';
 
 /**
- * The calligraphy C mark, optionally paired with the wordmark.
- *
- * The letterform is an image because a webfont cannot reproduce the brush
- * stroke; the name stays in type so it stays sharp at every size.
+ * Ink only: the C is a transparent PNG. "by Typeface" is positioned against
+ * the image box, not the padded lockup — percent-of-parent was measuring the
+ * reserved text gutter and pushing the tag away from the letter.
  */
 export function BrandMark({
   size = 32,
   withName = true,
-  nameClassName,
 }: {
   size?: number;
   withName?: boolean;
-  nameClassName?: string;
 }) {
+  const tag = Math.max(8, Math.round(size * 0.22));
+  const markWidth = Math.round(size * (536 / 660));
+
   return (
-    <span className="inline-flex items-center gap-2">
+    <span className="inline-flex items-end leading-none" style={{ gap: 0 }}>
       <Image
-        src="/brand/logo-mark.png"
-        alt=""
-        width={size}
+        src="/brand/logo-c.png"
+        alt={withName ? 'Calorie, by Typeface' : ''}
+        width={markWidth}
         height={size}
-        className="shrink-0 object-contain"
+        className="block object-contain"
         priority
       />
       {withName && (
-        <span className={cx('font-semibold tracking-tight text-foreground', nameClassName)}>
-          Calorie Tracker
+        <span
+          className="mb-px whitespace-nowrap text-muted"
+          style={{
+            marginLeft: 2,
+            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontSize: tag,
+            letterSpacing: 0,
+            lineHeight: 1,
+          }}
+        >
+          by Typeface
         </span>
       )}
     </span>

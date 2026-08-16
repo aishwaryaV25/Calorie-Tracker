@@ -53,6 +53,17 @@
   --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: "Times New Roman", Times, serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {
@@ -75,7 +86,9 @@ h3 {
 
 /* The prompt field sits inside its own rounded bar; the global ring would draw a second, sharp box. */
 #chat-message:focus,
-#chat-message:focus-visible {
+#chat-message:focus-visible,
+#diet-bot-message:focus,
+#diet-bot-message:focus-visible {
   outline: none;
 }
 

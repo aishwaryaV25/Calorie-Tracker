@@ -111,3 +111,11 @@ export interface ChatRequestInput {
   pendingAction?: unknown;
   choice?: { entryId?: string; index?: number; confirm?: boolean };
 }
+
+export interface DietBotRequestInput {
+  messages: ChatTurnInput[];
+  today?: string;
+  conversationId?: string;
+  /** The page they have open, so "how do I…?" can answer for this screen. */
+  page?: string;
+}

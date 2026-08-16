@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { BrandMark } from '@/components/brand/BrandMark';
+import { DietBotWidget } from '@/components/diet-bot/DietBotWidget';
 import { Button, cx } from '@/components/ui';
 import { NavIcon } from './nav-icons';
 
@@ -106,7 +107,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-10 border-b border-border bg-surface/90 backdrop-blur lg:hidden">
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <Link href="/dashboard">
-              <BrandMark size={26} nameClassName="hidden sm:inline" />
+              <BrandMark size={28} />
             </Link>
             <div className="flex items-center gap-2">
               <span className="hidden text-sm text-muted sm:inline">{user.displayName}</span>
@@ -144,6 +145,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
+
+      <DietBotWidget />
     </div>
   );
 }

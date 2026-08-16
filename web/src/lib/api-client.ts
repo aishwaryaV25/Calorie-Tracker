@@ -2,6 +2,7 @@ import type {
   AuthResponse,
   ChatReply,
   ChatTurn,
+  DietBotReply,
   CreateEntryPayload,
   CreateGoalPayload,
   DailyReportRow,
@@ -263,7 +264,12 @@ export const api = {
 
   ai: {
     status: () =>
-      request<{ available: boolean; extractAvailable?: boolean; chatAvailable?: boolean }>('/ai/status'),
+      request<{
+        available: boolean;
+        extractAvailable?: boolean;
+        chatAvailable?: boolean;
+        dietBotAvailable?: boolean;
+      }>('/ai/status'),
     extract: (file: File) => {
       const formData = new FormData();
       formData.append('image', file);
@@ -304,6 +310,12 @@ export const api = {
       formData.append('attachment', attachment);
       return request<ChatReply>('/ai/chat', { method: 'POST', formData });
     },
+    dietBot: (body: {
+      messages: ChatTurn[];
+      today: string;
+      conversationId?: string;
+      page?: string;
+    }) => request<DietBotReply>('/ai/diet-bot', { method: 'POST', body }),
   },
 
   imports: {

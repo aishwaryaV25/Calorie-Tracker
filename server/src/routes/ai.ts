@@ -7,10 +7,11 @@ import { authenticate, requireUser } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { IMAGE_SIZE_LIMIT_MB, parseChatUpload, uploadImage } from '../middleware/upload.js';
 import { handleValidation, validatedBody } from '../middleware/validate.js';
-import type { ChatRequestInput } from '../types/dto.js';
-import { chatValidators } from '../validators/ai.validator.js';
+import type { ChatRequestInput, DietBotRequestInput } from '../types/dto.js';
+import { chatValidators, dietBotValidators } from '../validators/ai.validator.js';
 import * as aiExtractService from '../services/aiExtractService.js';
 import * as chatService from '../services/chatService.js';
+import * as dietBotService from '../services/dietBotService.js';
 
 export const aiRouter = Router();
 
@@ -23,6 +24,7 @@ aiRouter.get('/status', (_req, res) => {
     available: isAiConfigured(),
     extractAvailable: isAiConfigured(),
     chatAvailable: isGeminiConfigured(),
+    dietBotAvailable: isGeminiConfigured(),
   });
 });
 
@@ -70,6 +72,24 @@ aiRouter.post(
       requireUser(req).userId,
       validatedBody<ChatRequestInput>(req),
       attachment,
+    );
+
+    res.json(reply);
+  }),
+);
+
+/**
+ * The floating diet buddy. Same Gemini key as chat; read-only tools only.
+ * Transcript is sent each turn and nothing is stored.
+ */
+aiRouter.post(
+  '/diet-bot',
+  dietBotValidators,
+  handleValidation,
+  asyncHandler(async (req, res) => {
+    const reply = await dietBotService.respond(
+      requireUser(req).userId,
+      validatedBody<DietBotRequestInput>(req),
     );
 
     res.json(reply);

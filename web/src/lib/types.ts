@@ -241,6 +241,11 @@ export interface ChatReply {
   pendingAction?: ChatPendingAction | null;
 }
 
+export interface DietBotReply {
+  reply: string;
+  conversationId: string;
+}
+
 export interface CreateGoalPayload {
   dailyCalories: number;
   proteinGrams: number;

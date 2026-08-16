@@ -64,8 +64,8 @@ export function AuthForm({ mode }: AuthFormProps) {
     <main className="flex min-h-dvh items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <Link href="/" className="mb-3">
-            <BrandMark size={56} withName={false} />
+          <Link href="/" className="mb-3" aria-label="Calorie, by Typeface">
+            <BrandMark size={56} />
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">Calorie Tracker</h1>
           <p className="mt-1.5 text-sm text-muted">
