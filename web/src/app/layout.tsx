@@ -9,7 +9,6 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 export const metadata: Metadata = {
   title: 'Calorie Tracker',
   description: 'Track meals, set nutrition goals and see how your intake trends over time.',
-  icons: { icon: '/brand/logo-mark.png' },
 };
 
 export const viewport: Viewport = {
