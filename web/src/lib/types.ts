@@ -210,9 +210,18 @@ export interface ChatTurn {
 /** Something the assistant changed in the diary during a turn. */
 export interface ChatAction {
   tool: string;
-  type?: 'meal_created' | 'meal_updated' | 'meal_deleted' | 'goals_updated';
+  type?: 'meal_created' | 'meal_updated' | 'meal_deleted' | 'goals_updated' | 'report_ready';
   label: string;
   entryId?: string;
+  from?: string;
+  to?: string;
+  filename?: string;
+}
+
+export interface ChatDownload {
+  filename: string;
+  contentType: string;
+  base64: string;
 }
 
 export interface ChatCandidate {
@@ -239,11 +248,26 @@ export interface ChatReply {
   actions: ChatAction[];
   conversationId?: string;
   pendingAction?: ChatPendingAction | null;
+  download?: ChatDownload;
 }
 
 export interface DietBotReply {
   reply: string;
   conversationId: string;
+}
+
+export interface WeightLog {
+  id: string;
+  kg: number;
+  loggedOn: string;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface CreateWeightPayload {
+  kg: number;
+  loggedOn?: string;
+  note?: string;
 }
 
 export interface CreateGoalPayload {

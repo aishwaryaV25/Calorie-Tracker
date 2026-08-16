@@ -87,6 +87,15 @@ export interface CreateGoalInput {
 
 export type ListGoalsQuery = PaginationQuery;
 
+export interface CreateWeightInput {
+  kg: number;
+  /** Calendar day YYYY-MM-DD. Defaults to today in the service. */
+  loggedOn?: string;
+  note?: string;
+}
+
+export type ListWeightsQuery = PaginationQuery;
+
 export interface ReportRangeQuery extends PaginationQuery {
   from?: Date;
   to?: Date;

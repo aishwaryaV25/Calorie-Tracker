@@ -25,6 +25,7 @@ import {
   type ToolContext,
   type ToolOutcome,
 } from './chatTools.js';
+import type { ChatDownload } from './chatTypes.js';
 
 export interface ChatAttachment {
   buffer: Buffer;
@@ -46,6 +47,7 @@ export interface ChatReply {
   actions: ChatAction[];
   conversationId: string;
   pendingAction: PendingAction | null;
+  download?: ChatDownload;
 }
 
 /**
@@ -89,6 +91,12 @@ LOGGING
 CHANGING
 - Never invent an entryId. To change or delete a meal they pointed at by day or name, call update_entry or delete_entry with from/to/search/mealType and omit entryId. If several match, the tool asks them — do not pick one yourself.
 - deleteAll is only for "delete everything / all meals". The tool will ask for confirmation; do not set confirmAll until they have said yes.
+
+REPORTS
+- When they ask for a PDF, a downloadable report, last week's report, or any custom range, call generate_report_pdf. That is the same document the Reports page downloads.
+- Pass from and to as YYYY-MM-DD when they named dates. Use period for this week, last week, the last 7 days, this month or last month.
+- If they just say "a report" or "last week's PDF" with no dates, call the tool with no from, to or period — it uses the previous ISO week.
+- After the tool returns, say the file is ready and which days it covers. Do not invent figures the tool did not return.
 
 ANSWERING
 - About their food, goals or progress: read the real numbers with a tool first. General nutrition questions need no tool.
@@ -147,6 +155,7 @@ async function runTurn(
   const context: ToolContext = { userId, today: input.today ?? toDateKey(new Date()) };
   const lastUser = [...input.messages].reverse().find((turn) => turn.role === 'user')?.content ?? '';
   const pending = asPending(input.pendingAction);
+  let download: ChatDownload | undefined;
 
   if (attachment) {
     const previewed = await previewAttachment(attachment.buffer, attachment.mimeType, context.today);
@@ -225,7 +234,7 @@ async function runTurn(
     });
 
     if (completion.toolCalls.length === 0) {
-      return { reply: orFallback(completion.content), actions, conversationId, pendingAction: null };
+      return { reply: orFallback(completion.content), actions, conversationId, pendingAction: null, download };
     }
 
     // The assistant's own turn has to go back verbatim, tool calls included: a
@@ -250,12 +259,21 @@ async function runTurn(
         actions.push(outcome.action);
       }
 
+      if (outcome.download) {
+        download = {
+          filename: outcome.download.filename,
+          contentType: 'application/pdf',
+          base64: outcome.download.buffer.toString('base64'),
+        };
+      }
+
       if (outcome.pending) {
         return {
           reply: describePending(outcome.pending),
           actions,
           conversationId,
           pendingAction: outcome.pending,
+          download,
         };
       }
 
@@ -267,7 +285,7 @@ async function runTurn(
     }
   }
 
-  return { reply: await forceAnswer(messages), actions, conversationId, pendingAction: null };
+  return { reply: await forceAnswer(messages), actions, conversationId, pendingAction: null, download };
 }
 
 /**

@@ -135,6 +135,74 @@ describe('API regression', () => {
     assert.equal(leftover.data.meta.totalItems, 1);
   });
 
+  it('covers weight create, same-day replace, current, list, delete, and isolation', async () => {
+    const alice = await signup(base, 'Weight Alice');
+    const bob = await signup(base, 'Weight Bob');
+    const today = todayKey();
+    const yesterday = daysAgoKey(1);
+
+    const first = await request(base, '/weights', {
+      method: 'POST',
+      token: alice.token,
+      body: { kg: 72.4, loggedOn: yesterday, note: 'morning' },
+    });
+    assert.equal(first.status, 201, JSON.stringify(first.data));
+    assert.equal(first.data.kg, 72.4);
+    assert.equal(first.data.loggedOn, yesterday);
+    assert.equal(first.data.note, 'morning');
+
+    const todayRow = await request(base, '/weights', {
+      method: 'POST',
+      token: alice.token,
+      body: { kg: 72.1, loggedOn: today },
+    });
+    assert.equal(todayRow.status, 201);
+    assert.equal(todayRow.data.kg, 72.1);
+
+    const replaced = await request(base, '/weights', {
+      method: 'POST',
+      token: alice.token,
+      body: { kg: 71.9, loggedOn: today, note: 'after walk' },
+    });
+    assert.equal(replaced.status, 201);
+    assert.equal(replaced.data.id, todayRow.data.id);
+    assert.equal(replaced.data.kg, 71.9);
+    assert.equal(replaced.data.note, 'after walk');
+
+    const current = await request(base, '/weights/current', { token: alice.token });
+    assert.equal(current.status, 200);
+    assert.equal(current.data.weight.id, replaced.data.id);
+    assert.equal(current.data.weight.kg, 71.9);
+
+    const listed = await request(base, '/weights?page=1&pageSize=5', { token: alice.token });
+    assert.equal(listed.status, 200);
+    assert.equal(listed.data.meta.totalItems, 2);
+    assert.equal(listed.data.data[0].loggedOn, today);
+    assert.equal(listed.data.data[1].loggedOn, yesterday);
+
+    const bobCurrent = await request(base, '/weights/current', { token: bob.token });
+    assert.equal(bobCurrent.data.weight, null);
+
+    const bobList = await request(base, '/weights?page=1&pageSize=5', { token: bob.token });
+    assert.equal(bobList.data.meta.totalItems, 0);
+
+    const bobDelete = await request(base, `/weights/${first.data.id}`, {
+      method: 'DELETE',
+      token: bob.token,
+    });
+    assert.equal(bobDelete.status, 404);
+
+    const removed = await request(base, `/weights/${first.data.id}`, {
+      method: 'DELETE',
+      token: alice.token,
+    });
+    assert.equal(removed.status, 204);
+
+    const afterDelete = await request(base, '/weights?page=1&pageSize=5', { token: alice.token });
+    assert.equal(afterDelete.data.meta.totalItems, 1);
+    assert.equal(afterDelete.data.data[0].id, replaced.data.id);
+  });
+
   it('covers meal CRUD, filters, pagination, macros and micros', async () => {
     const { token } = await signup(base, 'Meal User');
     const today = todayKey();

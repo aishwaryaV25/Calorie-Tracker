@@ -5,7 +5,7 @@ import { api, ApiError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/auth-context';
 import { formatCalories } from '@/lib/format';
 import { openBite } from '@/lib/open-bite';
-import { Alert, Badge, Button, Field, Input, Textarea, cx } from '@/components/ui';
+import { Alert, Badge, Button, DateTimeField, Field, Input, Textarea, cx } from '@/components/ui';
 import { MealSummaryDonut } from './MealSummaryDonut';
 import { MicronutrientFields } from './MicronutrientFields';
 import {
@@ -406,13 +406,11 @@ export function LogMealComposer({ isAiAvailable, onSaved }: LogMealComposerProps
           <MicronutrientFields idPrefix="meal-micro" value={micronutrients} onChange={setMicronutrients} />
 
           <Field label="When" htmlFor="consumedAt" error={fieldError('consumedAt')} required>
-            <Input
+            <DateTimeField
               id="consumedAt"
-              type="datetime-local"
-              required
               value={consumedAt}
               hasError={Boolean(fieldError('consumedAt'))}
-              onChange={(event) => setConsumedAt(event.target.value)}
+              onChange={setConsumedAt}
             />
           </Field>
 

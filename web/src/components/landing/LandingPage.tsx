@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { useRef } from 'react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { Button } from '@/components/ui';
+import { BiteFeature } from './BiteFeature';
 import { ExtractPreview } from './ExtractPreview';
 import { FeatureCards } from './FeatureCards';
 import { useLandingMotion } from './useLandingMotion';
 
 const NAV = [
   { href: '#features', label: 'Features' },
+  { href: '#bite', label: 'Bite' },
   { href: '#how-it-works', label: 'How it works' },
 ];
 
@@ -30,6 +32,7 @@ const PATHS = [
   { title: 'Photograph it', body: 'A plate or a label. Confirm the draft.' },
   { title: 'Import a PDF', body: 'A week of rows, reviewed, then committed.' },
   { title: 'Say it', body: 'Chat Support logs it the same way the form does.' },
+  { title: 'Ask Bite', body: 'What to eat next. It can see today. It will not write a row.' },
 ];
 
 export function LandingPage() {
@@ -77,7 +80,8 @@ export function LandingPage() {
             </h1>
             <p className="mt-6 max-w-md text-base leading-relaxed text-muted">
               Calories, protein, carbs and fat — logged from a meal, a photo or a
-              sentence. One record. Insights that help you hit the day.
+              sentence. Bite sits on the page and tells you what still fits. It will
+              not write a row for you.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link href="/signup">
@@ -122,6 +126,8 @@ export function LandingPage() {
           <FeatureCards />
         </section>
 
+        <BiteFeature />
+
         <section id="how-it-works" className="border-t border-border bg-surface-raised px-4 py-16 sm:px-8 lg:px-12 lg:py-20">
           <p className="text-xs uppercase tracking-[0.16em] text-subtle">How it works</p>
           <h2 className="mt-2 text-3xl font-semibold tracking-tight">Three steps, one record.</h2>
@@ -145,7 +151,7 @@ export function LandingPage() {
           <h2 className="mt-2 max-w-md text-3xl font-semibold tracking-tight">
             Type it, shoot it, import it or say it. Same row.
           </h2>
-          <ul className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-5">
             {PATHS.map((path) => (
               <li key={path.title} data-land="path" className="bg-surface px-5 py-6">
                 <p className="text-sm font-medium">{path.title}</p>
@@ -160,7 +166,7 @@ export function LandingPage() {
             <div>
               <h2 className="text-3xl font-semibold tracking-tight">Sit down. Log the plate.</h2>
               <p className="mt-2 max-w-md text-sm text-white/60">
-                Free to start. Goals, meals, reports and chat — one diary.
+                Free to start. Goals, meals, reports, chat and Bite — one diary.
               </p>
             </div>
             <Link href="/signup">

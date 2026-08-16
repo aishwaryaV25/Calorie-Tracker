@@ -18,6 +18,7 @@ const DIARY = [
 
 const NUTRITION = [
   { href: '/goals', label: 'Goals', icon: 'goals' as const },
+  { href: '/weight', label: 'Weight Tracker', icon: 'weight' as const, isNew: true },
   { href: '/reports', label: 'Reports', icon: 'reports' as const },
 ];
 
@@ -136,6 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 >
                   <NavIcon name={item.icon} />
                   {item.label}
+                  {'isNew' in item && item.isNew ? <NewMark /> : null}
                 </Link>
               );
             })}
@@ -156,7 +158,12 @@ function NavGroup({
   pathname,
 }: {
   title: string;
-  items: { href: string; label: string; icon: Parameters<typeof NavIcon>[0]['name'] }[];
+  items: {
+    href: string;
+    label: string;
+    icon: Parameters<typeof NavIcon>[0]['name'];
+    isNew?: boolean;
+  }[];
   pathname: string;
 }) {
   return (
@@ -176,11 +183,13 @@ function NavItem({
   label,
   icon,
   active,
+  isNew,
 }: {
   href: string;
   label: string;
   icon: Parameters<typeof NavIcon>[0]['name'];
   active: boolean;
+  isNew?: boolean;
 }) {
   return (
     <Link
@@ -194,7 +203,10 @@ function NavItem({
       )}
     >
       <NavIcon name={icon} />
-      {label}
+      <span>
+        {label}
+        {isNew ? <NewMark /> : null}
+      </span>
     </Link>
   );
 }

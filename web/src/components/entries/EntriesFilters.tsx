@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Field, Input, Select, cx } from '@/components/ui';
+import { Button, DateField, Field, Input, Select, cx } from '@/components/ui';
 import { daysAgoKey, todayKey } from '@/lib/format';
 import { MEAL_LABELS, MEAL_TYPES, type MealType } from '@/lib/types';
 
@@ -106,21 +106,17 @@ export function EntriesFilters({ value, onChange }: EntriesFiltersProps) {
       {isCustom && (
         <div className="grid gap-3 sm:grid-cols-2" data-entries="custom-range">
           <Field label="From" htmlFor="from">
-            <Input
+            <DateField
               id="from"
-              type="date"
               value={value.from}
-              max={value.to || undefined}
-              onChange={(event) => onChange({ ...value, range: 'custom', from: event.target.value })}
+              onChange={(from) => onChange({ ...value, range: 'custom', from })}
             />
           </Field>
           <Field label="To" htmlFor="to">
-            <Input
+            <DateField
               id="to"
-              type="date"
               value={value.to}
-              min={value.from || undefined}
-              onChange={(event) => onChange({ ...value, range: 'custom', to: event.target.value })}
+              onChange={(to) => onChange({ ...value, range: 'custom', to })}
             />
           </Field>
         </div>

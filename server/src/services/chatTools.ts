@@ -7,6 +7,8 @@ import {
 } from '../domain/nutrition.js';
 import type { ToolDefinition } from '../lib/ai-client.js';
 import { addDays, fromDateKey, toDateKey } from '../lib/dates.js';
+import { resolveReportWindow } from './chatDates.js';
+import * as reportPdfService from './reportPdfService.js';
 import { AppError, badRequest } from '../lib/errors.js';
 import type { CreateEntryInput, UpdateEntryInput } from '../types/dto.js';
 import { createPending, describePending, type PendingAction } from './chatPending.js';
@@ -16,6 +18,7 @@ import type { ChatAction } from './chatTypes.js';
 import * as entriesService from './entriesService.js';
 import * as goalsService from './goalsService.js';
 import * as reportsService from './reportsService.js';
+import * as weightsService from './weightsService.js';
 
 /**
  * The actions the assistant can take on the user's behalf.
@@ -45,6 +48,8 @@ export interface ToolOutcome {
   pending?: PendingAction;
   /** Bulk writes that produced more than one action. */
   actions?: ChatAction[];
+  /** A file the client should save. Never sent back to the model. */
+  download?: { filename: string; buffer: Buffer };
 }
 
 interface ChatTool {
@@ -624,6 +629,100 @@ const getRemainingTool: ChatTool = {
   },
 };
 
+const getWeightTool: ChatTool = {
+  definition: {
+    type: 'function',
+    function: {
+      name: 'get_weight',
+      description:
+        'Latest weigh-in, the one before it, and the last few readings. Use before talking about weight, a cut, or a gym plan.',
+      parameters: {
+        type: 'object',
+        properties: {},
+      },
+    },
+  },
+  async handle(_args, context) {
+    const [summary, goal] = await Promise.all([
+      weightsService.summarize(context.userId, 8),
+      goalsService.getGoalForDate(context.userId, fromDateKey(context.today)),
+    ]);
+
+    return {
+      result: {
+        latest: summary.latest,
+        previous: summary.previous,
+        recent: summary.recent,
+        targetWeightKg: goal?.targetWeightKg ?? null,
+      },
+    };
+  },
+};
+
+const generateReportPdfTool: ChatTool = {
+  definition: {
+    type: 'function',
+    function: {
+      name: 'generate_report_pdf',
+      description:
+        'Build the downloadable nutrition PDF for a date range. Use this when they ask for a report, a PDF, last week, this month, or any custom window. If they name no dates, omit from/to and period so the previous ISO week is used.',
+      parameters: {
+        type: 'object',
+        properties: {
+          from: {
+            type: 'string',
+            description: 'First day YYYY-MM-DD. Wins over period when both are set.',
+          },
+          to: {
+            type: 'string',
+            description: 'Last day YYYY-MM-DD. Wins over period when both are set.',
+          },
+          period: {
+            type: 'string',
+            enum: ['last_week', 'this_week', 'last_7_days', 'this_month', 'last_month'],
+            description:
+              'Used when from/to are omitted. last_week is the previous Monday–Sunday. last_7_days is today and the six days before.',
+          },
+        },
+      },
+    },
+  },
+  async handle(args, context) {
+    const window = resolveReportWindow({
+      today: context.today,
+      from: readDateKey(args, 'from'),
+      to: readDateKey(args, 'to'),
+      period: readString(args, 'period'),
+    });
+
+    const { buffer, filename } = await reportPdfService.buildReportPdf(context.userId, {
+      from: fromDateKey(window.from),
+      to: fromDateKey(window.to),
+      page: 1,
+      pageSize: 100,
+    });
+
+    return {
+      result: {
+        ready: true,
+        from: window.from,
+        to: window.to,
+        filename,
+        bytes: buffer.length,
+      },
+      action: {
+        tool: 'generate_report_pdf',
+        type: 'report_ready',
+        label: `PDF ready — ${window.from} to ${window.to}`,
+        from: window.from,
+        to: window.to,
+        filename,
+      },
+      download: { filename, buffer },
+    };
+  },
+};
+
 const recommendMealTool: ChatTool = {
   definition: {
     type: 'function',
@@ -654,6 +753,8 @@ const CHAT_TOOLS: Record<string, ChatTool> = {
   set_goal: setGoalTool,
   get_summary: getSummaryTool,
   get_remaining: getRemainingTool,
+  get_weight: getWeightTool,
+  generate_report_pdf: generateReportPdfTool,
   recommend_meal: recommendMealTool,
 };
 

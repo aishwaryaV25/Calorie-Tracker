@@ -205,6 +205,69 @@ describe('agent tools and pending choices', () => {
     assert.ok(suggestions.length > 0);
   });
 
+  it('reads the latest weigh-in for the signed-in user only', async () => {
+    const account = await signup(base, 'Agent Weight');
+    await request(base, '/weights', {
+      method: 'POST',
+      token: account.token,
+      body: { kg: 71.5, loggedOn: todayKey() },
+    });
+
+    const outcome = await runTool('get_weight', '{}', {
+      userId: account.user.id,
+      today: todayKey(),
+    });
+    const data = outcome.result as { latest: { kg: number } | null };
+    assert.equal(data.latest?.kg, 71.5);
+  });
+
+  it('builds a PDF for last week when no range is given', async () => {
+    const account = await signup(base, 'Agent Pdf Week');
+    const today = '2026-08-16';
+
+    const outcome = await runTool('generate_report_pdf', '{}', {
+      userId: account.user.id,
+      today,
+    });
+    const data = outcome.result as { from: string; to: string; filename: string; ready: boolean };
+
+    assert.equal(data.ready, true);
+    assert.equal(data.from, '2026-08-03');
+    assert.equal(data.to, '2026-08-09');
+    assert.equal(outcome.action?.type, 'report_ready');
+    assert.ok(outcome.download?.buffer.subarray(0, 4).toString() === '%PDF');
+    assert.match(outcome.download?.filename ?? '', /2026-08-03.*2026-08-09/);
+  });
+
+  it('builds a PDF for a custom range and swaps reversed dates', async () => {
+    const account = await signup(base, 'Agent Pdf Range');
+
+    const outcome = await runTool(
+      'generate_report_pdf',
+      JSON.stringify({ from: '2026-08-16', to: '2026-08-10' }),
+      { userId: account.user.id, today: '2026-08-16' },
+    );
+    const data = outcome.result as { from: string; to: string };
+
+    assert.equal(data.from, '2026-08-10');
+    assert.equal(data.to, '2026-08-16');
+    assert.equal(outcome.action?.from, '2026-08-10');
+    assert.ok(outcome.download?.buffer.length);
+  });
+
+  it('builds a PDF for the last seven days when that period is asked for', async () => {
+    const account = await signup(base, 'Agent Pdf Seven');
+
+    const outcome = await runTool(
+      'generate_report_pdf',
+      JSON.stringify({ period: 'last_7_days' }),
+      { userId: account.user.id, today: '2026-08-16' },
+    );
+    const data = outcome.result as { from: string; to: string };
+    assert.equal(data.from, '2026-08-10');
+    assert.equal(data.to, '2026-08-16');
+  });
+
   it('does not invent a pending choice from an expired payload', async () => {
     const { userId } = await seedYesterday('Agent Expire');
     const pending = createPending('choose_delete', 'remove', [

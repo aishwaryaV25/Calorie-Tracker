@@ -5,6 +5,8 @@ import type {
   DietBotReply,
   CreateEntryPayload,
   CreateGoalPayload,
+  CreateWeightPayload,
+  WeightLog,
   DailyReportRow,
   EntriesResponse,
   ExtractionResult,
@@ -270,6 +272,14 @@ export const api = {
     history: (query: QueryParams = {}) => request<Paginated<Goal>>('/goals', { query }),
     save: (body: CreateGoalPayload) => request<Goal>('/goals', { method: 'POST', body }),
     remove: (id: string) => request<void>(`/goals/${id}`, { method: 'DELETE' }),
+  },
+
+  weights: {
+    current: () => request<{ weight: WeightLog | null }>('/weights/current'),
+    list: (query: QueryParams = {}) => request<Paginated<WeightLog>>('/weights', { query }),
+    save: (body: CreateWeightPayload) =>
+      request<WeightLog>('/weights', { method: 'POST', body }),
+    remove: (id: string) => request<void>(`/weights/${id}`, { method: 'DELETE' }),
   },
 
   reports: {

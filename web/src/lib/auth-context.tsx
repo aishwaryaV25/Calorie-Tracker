@@ -36,8 +36,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { user: profile } = await api.auth.me();
         return profile;
-      } catch {
-        tokenStorage.clear();
+      } catch (error) {
+        // 429 / network blips are not a revoked session. Only a 401 means
+        // the stored token is no longer valid.
+        if (error instanceof ApiError && error.status === 401) {
+          tokenStorage.clear();
+        }
         return null;
       }
     };

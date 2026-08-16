@@ -18,6 +18,7 @@ model User {
 
   goals        Goal[]
   entries      FoodEntry[]
+  weights      WeightLog[]
 }
 
 /// Goals are append-only rather than mutable: each row is the set of targets that
@@ -37,6 +38,24 @@ model Goal {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, effectiveFrom])
+}
+
+/// One weigh-in per calendar day. Logging again on the same day replaces that
+/// reading so the chart does not fork into two points for Tuesday.
+model WeightLog {
+  id        String   @id @default(cuid())
+  userId    String
+  kg        Float
+  /// Midnight UTC key for the eater's calendar day, same convention as entries.
+  loggedOn  DateTime
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, loggedOn])
+  @@index([userId, loggedOn])
 }
 
 model FoodEntry {

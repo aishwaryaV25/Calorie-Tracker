@@ -1,116 +1,144 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { cx, Input } from '@/components/ui';
-import { daysAgoKey, todayKey } from '@/lib/format';
+import { DateField, Field, cx } from '@/components/ui';
+import { daysAgoKey, formatDateKey, todayKey } from '@/lib/format';
+
+export type ReportPreset = 'today' | '7' | '30' | '90' | 'custom';
 
 export interface DateRange {
   from: string;
   to: string;
+  preset: ReportPreset;
 }
 
-/** Windows worth one click. Capped at 90 days so one page of the daily report
- *  covers the whole range (the API allows at most 100 rows per page). */
-const PRESETS = [
-  { label: '7 days', days: 7 },
-  { label: '14 days', days: 14 },
-  { label: '30 days', days: 30 },
-  { label: '90 days', days: 90 },
-] as const;
+const PRESETS: { id: Exclude<ReportPreset, 'custom'>; label: string; from: () => string; to: () => string }[] =
+  [
+    { id: 'today', label: 'Today', from: todayKey, to: todayKey },
+    { id: '7', label: 'Last 7 days', from: () => daysAgoKey(6), to: todayKey },
+    { id: '30', label: 'Last 30 days', from: () => daysAgoKey(29), to: todayKey },
+    { id: '90', label: 'Last 90 days', from: () => daysAgoKey(89), to: todayKey },
+  ];
 
-const presetRange = (days: number): DateRange => ({
-  from: daysAgoKey(days - 1),
-  to: todayKey(),
-});
+/** Earlier date first. Typing 18 then 16 still becomes 16 → 18. */
+export function normalizeRange(from: string, to: string): { from: string; to: string } {
+  if (from && to && from > to) {
+    return { from: to, to: from };
+  }
+  return { from, to };
+}
 
-export const defaultRange = (): DateRange => presetRange(30);
+const presetRange = (id: Exclude<ReportPreset, 'custom'>): DateRange => {
+  const preset = PRESETS.find((item) => item.id === id)!;
+  return { preset: id, from: preset.from(), to: preset.to() };
+};
 
-/** Inclusive day count, or null while a date input is empty or malformed. */
+export const defaultRange = (): DateRange => presetRange('30');
+
+export function queryRange(range: DateRange): { from: string; to: string } {
+  return { from: range.from, to: range.to };
+}
+
+/** Inclusive day count, or null while a date input is empty. */
 export function rangeDays(range: DateRange): number | null {
-  const from = Date.parse(`${range.from}T00:00:00Z`);
-  const to = Date.parse(`${range.to}T00:00:00Z`);
+  const { from, to } = normalizeRange(range.from, range.to);
+  const start = Date.parse(`${from}T00:00:00Z`);
+  const end = Date.parse(`${to}T00:00:00Z`);
 
-  if (Number.isNaN(from) || Number.isNaN(to) || to < from) {
+  if (Number.isNaN(start) || Number.isNaN(end)) {
     return null;
   }
 
-  return Math.round((to - from) / 86_400_000) + 1;
+  return Math.round((end - start) / 86_400_000) + 1;
 }
 
 /**
- * Range control shared by every report on the page. Presets cover the common
- * cases; the two date fields stay visible so a custom window is never more than
- * a click away.
+ * Date range for the charts and the PDF. Custom dates stay hidden until that
+ * pill is on, same as Entries.
  */
 export function ReportRangePicker({
   value,
   onChange,
-  action,
 }: {
   value: DateRange;
   onChange: (range: DateRange) => void;
-  /** Sits at the right-hand end of the row, for an action that uses this range. */
-  action?: ReactNode;
 }) {
-  // A preset is "active" when the current range happens to equal it, so typing
-  // the same dates by hand highlights it too.
-  const activeDays = PRESETS.find((preset) => {
-    const candidate = presetRange(preset.days);
-    return candidate.from === value.from && candidate.to === value.to;
-  })?.days;
+  const isCustom = value.preset === 'custom';
+
+  function applyCustom(from: string, to: string) {
+    onChange({ preset: 'custom', ...normalizeRange(from, to) });
+  }
 
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-col gap-4">
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Date range</p>
+        <p className="mt-1 text-sm text-muted">Applies to the charts below and to the PDF.</p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
         {PRESETS.map((preset) => (
           <button
-            key={preset.days}
+            key={preset.id}
             type="button"
-            aria-pressed={activeDays === preset.days}
-            onClick={() => onChange(presetRange(preset.days))}
+            aria-pressed={value.preset === preset.id}
+            onClick={() => onChange(presetRange(preset.id))}
             className={cx(
-              'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-              activeDays === preset.days
+              'rounded-full px-3 py-1.5 text-xs transition-colors',
+              value.preset === preset.id
                 ? 'bg-foreground text-surface'
-                : 'border border-border-strong bg-surface text-muted hover:bg-surface-raised',
+                : 'border border-border-strong text-muted hover:text-foreground',
             )}
           >
             {preset.label}
           </button>
         ))}
+        <button
+          type="button"
+          aria-pressed={isCustom}
+          onClick={() =>
+            applyCustom(value.from || daysAgoKey(6), value.to || todayKey())
+          }
+          className={cx(
+            'rounded-full px-3 py-1.5 text-xs transition-colors',
+            isCustom
+              ? 'bg-foreground text-surface'
+              : 'border border-border-strong text-muted hover:text-foreground',
+          )}
+        >
+          Custom
+        </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2 text-xs text-subtle">
-          From
-          <Input
-            type="date"
-            className="w-auto text-xs"
-            value={value.from}
-            max={value.to || undefined}
-            onChange={(event) => onChange({ ...value, from: event.target.value })}
-          />
-        </label>
-        <label className="flex items-center gap-2 text-xs text-subtle">
-          To
-          <Input
-            type="date"
-            className="w-auto text-xs"
-            value={value.to}
-            min={value.from || undefined}
-            onChange={(event) => onChange({ ...value, to: event.target.value })}
-          />
-        </label>
-
-        {action && (
-          <>
-            {/* Separates the dates from what acts on them, so the row does not
-                read as one long strip of controls. */}
-            <span aria-hidden className="mx-1 hidden h-6 w-px bg-border sm:block" />
-            {action}
-          </>
-        )}
-      </div>
+      {isCustom && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="From" htmlFor="report-from">
+            <DateField
+              id="report-from"
+              value={value.from}
+              onChange={(from) => applyCustom(from, value.to)}
+            />
+          </Field>
+          <Field label="To" htmlFor="report-to">
+            <DateField
+              id="report-to"
+              value={value.to}
+              onChange={(to) => applyCustom(value.from, to)}
+            />
+          </Field>
+        </div>
+      )}
     </div>
   );
+}
+
+export function rangeLabel(range: DateRange): string {
+  if (!range.from || !range.to) {
+    return 'Pick both dates';
+  }
+
+  const { from, to } = normalizeRange(range.from, range.to);
+  const days = rangeDays({ ...range, from, to });
+  const span = `${formatDateKey(from, 'd MMM yyyy')} – ${formatDateKey(to, 'd MMM yyyy')}`;
+
+  return days ? `${span} · ${days} ${days === 1 ? 'day' : 'days'}` : span;
 }

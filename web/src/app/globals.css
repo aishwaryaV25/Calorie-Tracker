@@ -88,8 +88,23 @@ h3 {
 #chat-message:focus,
 #chat-message:focus-visible,
 #diet-bot-message:focus,
-#diet-bot-message:focus-visible {
+#diet-bot-message:focus-visible,
+#weightKg:focus,
+#weightKg:focus-visible {
   outline: none;
+}
+
+/* The kilos field is the scale display. Native steppers and the number
+   spinner gutter draw a box around the figure; hide them and step in UI. */
+#weightKg {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+#weightKg::-webkit-outer-spin-button,
+#weightKg::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
 }
 
 ::-webkit-scrollbar {

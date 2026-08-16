@@ -10,6 +10,7 @@ import { Alert, Button, EmptyState, Skeleton } from '@/components/ui';
 import { ChatComposer } from '@/components/chat/ChatComposer';
 import { ChatThread, type ThreadTurn } from '@/components/chat/ChatThread';
 import { notifyDataChanged } from '@/lib/data-sync';
+import { saveChatDownload } from '@/lib/download-file';
 import type { ChatPendingAction } from '@/lib/types';
 
 const HISTORY_LIMIT = 12;
@@ -19,6 +20,7 @@ const SUGGESTIONS = [
   'How am I doing against my calorie goal today?',
   'Set my daily calorie target to 2200',
   'Summarise what I ate this week',
+  'Generate a PDF report for last week',
 ];
 
 export default function ChatPage() {
@@ -68,6 +70,9 @@ export default function ChatPage() {
       setConversationId(result.conversationId);
       setPendingAction(result.pendingAction ?? null);
       notifyDataChanged(result.actions);
+      if (result.download) {
+        saveChatDownload(result.download);
+      }
       setTurns([
         ...history,
         {
@@ -76,6 +81,7 @@ export default function ChatPage() {
           content: result.reply,
           actions: result.actions,
           pendingAction: result.pendingAction,
+          download: result.download,
         },
       ]);
     } catch (caught) {
@@ -92,7 +98,10 @@ export default function ChatPage() {
   if (!(aiStatus.data?.chatAvailable ?? aiStatus.data?.available)) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Chat support</h1>
+        <header>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Tools</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Chat support</h1>
+        </header>
         <EmptyState
           title="Chat is switched off"
           description="This server has no Gemini key configured, so the assistant cannot run. Everything it does can still be done from the other pages."
@@ -110,10 +119,12 @@ export default function ChatPage() {
     <div className="flex flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Chat support</h1>
-          <p className="text-sm text-muted">
-            Your nutrition assistant can log meals, read a photo or PDF, and make changes with
-            your approval. Nothing from this thread is stored.
+          <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Tools</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Chat support</h1>
+          <p className="mt-1 max-w-xl text-sm text-muted">
+            Your nutrition assistant can log meals, read a photo or PDF, make changes with your
+            approval, and generate a report PDF for last week or any range you name. Nothing from
+            this thread is stored.
           </p>
         </div>
         {turns.length > 0 && (
@@ -141,7 +152,7 @@ export default function ChatPage() {
         )}
       </header>
 
-      <section className="flex min-h-[68vh] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-[0_1px_2px_rgb(17_17_19/0.04)]">
+      <section className="flex min-h-[68vh] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgb(17_17_19/0.04)]">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
           <div>
             <p className="text-sm font-semibold">Nutrition assistant</p>
@@ -155,24 +166,25 @@ export default function ChatPage() {
 
         <div className="flex flex-1 flex-col justify-between gap-5 p-5">
           {turns.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 py-10 text-center">
-              <div>
-                <p className="text-sm font-medium">What did you eat?</p>
-                <p className="mt-1 max-w-md text-xs text-subtle">
+            <div className="flex flex-1 flex-col justify-center gap-6">
+              <div className="rounded-2xl bg-foreground px-6 py-7 text-on-accent">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Ask it</p>
+                <p className="mt-2 text-2xl font-semibold tracking-tight">What did you eat?</p>
+                <p className="mt-2 max-w-md text-sm leading-relaxed text-white/65">
                   Describe a meal, or attach a photo or a PDF diary. The assistant drafts what it
                   sees; you confirm before anything is saved.
                 </p>
               </div>
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="flex flex-wrap gap-2">
                 {SUGGESTIONS.map((suggestion) => (
-                  <Button
+                  <button
                     key={suggestion}
-                    variant="secondary"
-                    className="px-3 py-1.5 text-xs"
+                    type="button"
                     onClick={() => send(suggestion)}
+                    className="rounded-full border border-border-strong px-3.5 py-1.5 text-left text-xs text-muted transition-colors hover:border-foreground hover:text-foreground"
                   >
                     {suggestion}
-                  </Button>
+                  </button>
                 ))}
               </div>
             </div>

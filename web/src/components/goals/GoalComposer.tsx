@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/auth-context';
 import { formatCalories, todayKey } from '@/lib/format';
-import { Alert, Button, Field, Input, cx } from '@/components/ui';
+import { Alert, Button, DateField, Field, Input, cx } from '@/components/ui';
 import { MealSummaryDonut } from '@/components/entries/MealSummaryDonut';
 import { TargetSlider } from './TargetSlider';
 import type { Goal } from '@/lib/types';
@@ -281,14 +281,11 @@ export function GoalComposer({
               error={fieldError('effectiveFrom')}
               hint="Earlier days keep what they had."
             >
-              <Input
+              <DateField
                 id="effectiveFrom"
-                type="date"
                 value={effectiveFrom}
                 hasError={Boolean(fieldError('effectiveFrom'))}
-                onChange={(event) => {
-                  setEffectiveFrom(event.target.value);
-                }}
+                onChange={setEffectiveFrom}
               />
             </Field>
           </div>

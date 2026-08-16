@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/auth-context';
-import { Alert, Button, Field, Input, Select } from '@/components/ui';
+import { Alert, Button, DateTimeField, Field, Input, Select } from '@/components/ui';
 import { PhotoExtract } from './PhotoExtract';
 import { MicronutrientFields } from './MicronutrientFields';
 import { MEAL_LABELS, MEAL_TYPES, type FoodEntry, type MealType, type Micronutrient } from '@/lib/types';
@@ -236,13 +236,11 @@ export function EntryForm({
         </Field>
 
         <Field label="When" htmlFor="consumedAt" error={fieldError('consumedAt')}>
-          <Input
+          <DateTimeField
             id="consumedAt"
-            type="datetime-local"
-            required
             value={values.consumedAt}
             hasError={Boolean(fieldError('consumedAt'))}
-            onChange={(event) => setValue('consumedAt', event.target.value)}
+            onChange={(consumedAt) => setValue('consumedAt', consumedAt)}
           />
         </Field>
       </div>

@@ -10,6 +10,8 @@ import {
   type ToolContext,
 } from './chatTools.js';
 import * as entriesService from './entriesService.js';
+import * as goalsService from './goalsService.js';
+import * as weightsService from './weightsService.js';
 
 /**
  * The floating companion. It talks; it does not write the diary. Chat Support
@@ -27,6 +29,7 @@ export const DIET_BOT_TOOL_NAMES = [
   'get_remaining',
   'get_goal',
   'get_summary',
+  'get_weight',
   'recommend_meal',
   'find_entries',
 ] as const;
@@ -55,6 +58,8 @@ const PAGE_HELP: Record<string, string> = {
     'Chat Support — the diary agent. It can log meals, change or delete entries, and read a photo or PDF. Bite cannot do those writes; send them there (or to Log Meal) when they want something saved.',
   '/import':
     'Bulk import — upload a PDF food diary. The first pass is a script parse; Deep Analyse uses Gemini. They review the table, then commit.',
+  '/weight':
+    'Weight — the scale log. One reading per day; saving again on the same day replaces it. Bite can see the trend and the goal weight. It cannot log a weigh-in; send them to this page to save a number.',
 };
 
 export function describeAppPage(page?: string): string {
@@ -63,7 +68,7 @@ export function describeAppPage(page?: string): string {
   }
 
   const path = page.split('?')[0]?.replace(/\/+$/, '') || '/';
-  return PAGE_HELP[path] ?? `They are on ${path}. If you are unsure what that screen does, say so and point them to Today, Log Meal, Goals, Entries, Reports, Chat Support or Bulk import.`;
+  return PAGE_HELP[path] ?? `They are on ${path}. If you are unsure what that screen does, say so and point them to Today, Log Meal, Goals, Weight, Entries, Reports, Chat Support or Bulk import.`;
 }
 
 export function buildDietBotPrompt(input: {
@@ -85,18 +90,22 @@ A sharp, warm person who happens to know food. You talk the way a good friend ta
 
 WHAT YOU ARE NOT
 - A doctor, dietitian, or therapist. No diagnoses, no "you should cut X for your condition" unless they already said a clinician told them that. For medical questions, say you are not qualified and keep the advice general.
-- The diary agent. You cannot log, edit, delete or set goals. If they want that, send them to Log Meal, Entries, Goals, or Chat Support. Never pretend you saved something.
+- The diary agent. You cannot log, edit, delete, set goals, save a weigh-in, or build a PDF report. If they want that, send them to Log Meal, Entries, Goals, Weight Tracker, Reports, or Chat Support. Never pretend you saved something.
 
 DIET
 Use the live snapshot below as the source of truth. Do not invent today's numbers. Suggest the next meal from what is left, their taste, and what they already ate. Portions in kitchen language (a palm of chicken, a bowl of dal). If they have no goal yet, help them pick a sensible starting target and point them to Goals.
+
+GYM AND TRAINING
+You can talk training: a week's split, what to do on a leftover-protein day, how a cut or a surplus should feel in the gym. Use their current weight, the goal weight, and today's leftover macros when you have them. You are not a coach or a physio. No rehab, no "fix this injury", no supplement stacks. Keep it kitchen-and-gym language. If they have no weigh-ins yet, say so and point them to Weight.
 
 HOW THE APP WORKS
 - Today: daily totals vs the goal.
 - Log Meal: one meal at a time; photo optional.
 - Goals: versioned by date; same-day save replaces that version.
+- Weight: one reading per day; same-day save replaces that reading.
 - Entries: the table — edit and delete live here.
 - Reports: charts and a downloadable PDF.
-- Chat Support: the agent that can change the diary.
+- Chat Support: the agent that can change the diary and generate a PDF report.
 - Bulk import: PDF diary in, review, commit.
 
 VOICE
@@ -109,8 +118,14 @@ ${input.snapshot}`;
 export function formatDietSnapshot(input: {
   remaining: Awaited<ReturnType<typeof getRemainingNutrition>>;
   meals: { foodName: string; mealType: string; calories: number }[];
+  weight?: {
+    latestKg: number | null;
+    latestOn: string | null;
+    previousKg: number | null;
+    targetKg: number | null;
+  };
 }): string {
-  const { remaining, meals } = input;
+  const { remaining, meals, weight } = input;
   const mealLines =
     meals.length === 0
       ? 'Nothing logged today yet.'
@@ -118,16 +133,29 @@ export function formatDietSnapshot(input: {
           .map((meal) => `- ${meal.mealType}: ${meal.foodName} (${Math.round(meal.calories)} kcal)`)
           .join('\n');
 
-  if (!remaining.hasGoal || !remaining.target) {
-    return `No daily goal is set.\nEaten today: ${Math.round(remaining.eaten.calories)} kcal.\nMeals:\n${mealLines}`;
-  }
+  const weightLine = weight
+    ? weight.latestKg == null
+      ? 'Weight: no weigh-ins yet.'
+      : [
+          `Weight now: ${weight.latestKg} kg${weight.latestOn ? ` on ${weight.latestOn}` : ''}.`,
+          weight.previousKg != null ? `Previous: ${weight.previousKg} kg.` : null,
+          weight.targetKg != null ? `Goal weight: ${weight.targetKg} kg.` : 'No goal weight set.',
+        ]
+          .filter(Boolean)
+          .join(' ')
+    : null;
 
-  return [
-    `Goal: ${Math.round(remaining.target.calories)} kcal · ${Math.round(remaining.target.proteinGrams)}g protein · ${Math.round(remaining.target.carbGrams)}g carbs · ${Math.round(remaining.target.fatGrams)}g fat.`,
-    `Eaten: ${Math.round(remaining.eaten.calories)} kcal · ${Math.round(remaining.eaten.proteinGrams)}g P · ${Math.round(remaining.eaten.carbGrams)}g C · ${Math.round(remaining.eaten.fatGrams)}g F.`,
-    `Left: ${Math.round(remaining.remaining.calories)} kcal · ${Math.round(remaining.remaining.proteinGrams)}g P · ${Math.round(remaining.remaining.carbGrams)}g C · ${Math.round(remaining.remaining.fatGrams)}g F.`,
-    `Meals:\n${mealLines}`,
-  ].join('\n');
+  const diet =
+    !remaining.hasGoal || !remaining.target
+      ? `No daily goal is set.\nEaten today: ${Math.round(remaining.eaten.calories)} kcal.\nMeals:\n${mealLines}`
+      : [
+          `Goal: ${Math.round(remaining.target.calories)} kcal · ${Math.round(remaining.target.proteinGrams)}g protein · ${Math.round(remaining.target.carbGrams)}g carbs · ${Math.round(remaining.target.fatGrams)}g fat.`,
+          `Eaten: ${Math.round(remaining.eaten.calories)} kcal · ${Math.round(remaining.eaten.proteinGrams)}g P · ${Math.round(remaining.eaten.carbGrams)}g C · ${Math.round(remaining.eaten.fatGrams)}g F.`,
+          `Left: ${Math.round(remaining.remaining.calories)} kcal · ${Math.round(remaining.remaining.proteinGrams)}g P · ${Math.round(remaining.remaining.carbGrams)}g C · ${Math.round(remaining.remaining.fatGrams)}g F.`,
+          `Meals:\n${mealLines}`,
+        ].join('\n');
+
+  return weightLine ? `${diet}\n${weightLine}` : diet;
 }
 
 export async function respond(userId: string, input: DietBotRequestInput): Promise<DietBotReply> {
@@ -135,7 +163,7 @@ export async function respond(userId: string, input: DietBotRequestInput): Promi
   const today = input.today ?? toDateKey(new Date());
   const started = Date.now();
 
-  const [profile, remaining, day] = await Promise.all([
+  const [profile, remaining, day, weight, goal] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { displayName: true } }),
     getRemainingNutrition(userId, today),
     entriesService.listEntries(userId, {
@@ -146,6 +174,8 @@ export async function respond(userId: string, input: DietBotRequestInput): Promi
       page: 1,
       pageSize: 20,
     }),
+    weightsService.summarize(userId, 8),
+    goalsService.getGoalForDate(userId, fromDateKey(today)),
   ]);
 
   const firstName = firstNameOf(profile?.displayName ?? '');
@@ -156,6 +186,12 @@ export async function respond(userId: string, input: DietBotRequestInput): Promi
       mealType: entry.mealType,
       calories: entry.calories,
     })),
+    weight: {
+      latestKg: weight.latest?.kg ?? null,
+      latestOn: weight.latest?.loggedOn ?? null,
+      previousKg: weight.previous?.kg ?? null,
+      targetKg: goal?.targetWeightKg ?? null,
+    },
   });
 
   const messages: ChatMessage[] = [

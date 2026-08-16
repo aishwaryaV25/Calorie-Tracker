@@ -11,7 +11,7 @@ import { useAsync } from '@/hooks/useAsync';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { useDataRevision } from '@/lib/data-sync';
-import { daysAgoKey, formatCalories, formatGrams, formatTime, todayKey } from '@/lib/format';
+import { daysAgoKey, formatCalories, formatGrams, todayKey } from '@/lib/format';
 import { MEAL_LABELS, MEAL_TYPES, type FoodEntry, type MealType } from '@/lib/types';
 
 export default function DashboardPage() {
@@ -161,13 +161,11 @@ export default function DashboardPage() {
       )}
 
       <section>
-        <div className="mb-3 flex items-end justify-between gap-3">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">The plate</p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight">Four meals, one day.</h2>
-          </div>
+        <div className="mb-3">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">The plate</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight">Four meals, one day.</h2>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2">
           {MEAL_TYPES.map((meal) => {
             const mealEntries = (entries.data?.data ?? []).filter((item) => item.mealType === meal);
             const mealCalories = mealEntries.reduce((sum, item) => sum + item.calories, 0);
@@ -176,57 +174,60 @@ export default function DashboardPage() {
               <article
                 key={meal}
                 data-today="meal"
-                className="flex min-h-[16rem] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgb(17_17_19/0.04)]"
+                className="rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgb(17_17_19/0.04)]"
               >
-                <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3.5">
+                <header className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
                   <div className="flex items-center gap-2.5">
                     <MealMark meal={meal} />
                     <div>
                       <p className="text-sm font-semibold">{MEAL_LABELS[meal]}</p>
-                      <p className="text-xs text-subtle">{formatCalories(mealCalories)} kcal</p>
+                      <p className="text-xs text-subtle">
+                        {formatCalories(mealCalories)} kcal
+                        {mealEntries.length > 0 &&
+                          ` · ${mealEntries.length} ${mealEntries.length === 1 ? 'item' : 'items'}`}
+                      </p>
                     </div>
                   </div>
-                  <Button variant="ghost" onClick={() => setComposingMeal(meal)} className="px-2 py-1">
+                  <Button variant="ghost" onClick={() => setComposingMeal(meal)} className="px-2 py-1 text-xs">
                     Add
                   </Button>
                 </header>
-                <div className="flex flex-1 flex-col px-4 py-2">
+                <div className="px-5 pb-4">
                   {entries.isLoading ? (
-                    <Skeleton className="my-3 h-16 w-full" />
+                    <Skeleton className="h-14 w-full" />
                   ) : mealEntries.length === 0 ? (
-                    <p className="m-auto py-6 text-center text-xs text-muted">Nothing here yet.</p>
+                    <p className="border-t border-border pt-3 text-xs text-subtle">Nothing here yet.</p>
                   ) : (
-                    <ul className="flex flex-col divide-y divide-border">
+                    <ul className="flex flex-col">
                       {mealEntries.map((entry) => (
-                        <li key={entry.id} className="flex items-center justify-between gap-3 py-2.5">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm">{entry.foodName}</p>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              <SourceBadge source={entry.source} />
-                              <p className="text-xs text-muted">
-                                {entry.quantity} {entry.unit} · {formatTime(entry.consumedAt)} ·{' '}
-                                {formatGrams(entry.macros.proteinGrams)}p /{' '}
-                                {formatGrams(entry.macros.carbGrams)}c /{' '}
-                                {formatGrams(entry.macros.fatGrams)}f
-                              </p>
-                            </div>
+                        <li key={entry.id} className="border-t border-border py-3">
+                          <div className="flex items-start justify-between gap-4">
+                            <p className="text-sm font-medium leading-snug">{entry.foodName}</p>
+                            <p className="shrink-0 text-sm tabular-nums">
+                              {formatCalories(entry.calories)}
+                            </p>
                           </div>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <span className="text-sm tabular-nums">{formatCalories(entry.calories)}</span>
-                            <Button
-                              variant="ghost"
-                              className="px-2 py-1 text-xs"
-                              onClick={() => setEditingEntry(entry)}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              className="px-2 py-1 text-xs hover:text-danger"
-                              onClick={() => void handleDelete(entry)}
-                            >
-                              Delete
-                            </Button>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <SourceBadge source={entry.source} />
+                            <span className="text-xs text-subtle">
+                              {entry.quantity} {entry.unit}
+                            </span>
+                            <span className="ml-auto flex gap-1">
+                              <Button
+                                variant="ghost"
+                                className="px-2 py-0.5 text-xs"
+                                onClick={() => setEditingEntry(entry)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                className="px-2 py-0.5 text-xs hover:text-danger"
+                                onClick={() => void handleDelete(entry)}
+                              >
+                                Delete
+                              </Button>
+                            </span>
                           </div>
                         </li>
                       ))}

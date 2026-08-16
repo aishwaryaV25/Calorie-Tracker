@@ -56,11 +56,14 @@ export interface ResolvedRange {
  * sensible bucket.
  */
 export function resolveRange(query: ReportRangeQuery): ResolvedRange {
-  const to = startOfUtcDay(query.to ?? new Date());
-  const from = startOfUtcDay(query.from ?? addDays(to, -(DEFAULT_RANGE_DAYS - 1)));
+  let to = startOfUtcDay(query.to ?? new Date());
+  let from = startOfUtcDay(query.from ?? addDays(to, -(DEFAULT_RANGE_DAYS - 1)));
 
+  // Either order is accepted; the window is always earlier → later.
   if (from > to) {
-    throw badRequest('"from" must be on or before "to".');
+    const swap = from;
+    from = to;
+    to = swap;
   }
 
   const days = differenceInDays(to, from) + 1;

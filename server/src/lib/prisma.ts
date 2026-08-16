@@ -25,6 +25,31 @@ function databaseUrlWithPoolCap(url: string): string {
   return parsed.toString();
 }
 
+function createPrisma() {
+  return new PrismaClient({
+    log: config.isProduction ? ['error'] : ['warn', 'error'],
+    datasources: { db: { url: databaseUrlWithPoolCap(config.databaseUrl) } },
+  });
+}
+
+/**
+ * A client built before `prisma generate` added a model is still cached on
+ * `globalThis` across tsx reloads. Drop it so the next construct sees the
+ * current schema — otherwise `weightLog` (and any later model) is undefined.
+ */
+function discardIfStale(client: PrismaClient | undefined) {
+  if (!client) {
+    return undefined;
+  }
+
+  if (typeof (client as { weightLog?: { findFirst?: unknown } }).weightLog?.findFirst !== 'function') {
+    void client.$disconnect();
+    return undefined;
+  }
+
+  return client;
+}
+
 /**
  * Reused across the process. In watch mode the module can be re-evaluated on
  * reload, so the client is cached on `globalThis` to avoid exhausting the
@@ -32,12 +57,7 @@ function databaseUrlWithPoolCap(url: string): string {
  */
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: config.isProduction ? ['error'] : ['warn', 'error'],
-    datasources: { db: { url: databaseUrlWithPoolCap(config.databaseUrl) } },
-  });
+export const prisma = discardIfStale(globalForPrisma.prisma) ?? createPrisma();
 
 if (!config.isProduction) {
   globalForPrisma.prisma = prisma;

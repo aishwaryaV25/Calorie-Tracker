@@ -74,6 +74,69 @@ async function tokenFromPage(page: Page) {
   return token;
 }
 
+/** Today’s h1 is the weekday, not the word “Today”. */
+async function expectToday(page: Page) {
+  await expect(page.locator('aside').getByRole('link', { name: 'Today' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add entry' })).toBeVisible();
+}
+
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+async function pickDate(page: Page, fieldId: string, key: string) {
+  await page.locator(`#${fieldId}`).click();
+  const dialog = page.getByRole('dialog', { name: 'Choose a date' });
+  await expect(dialog).toBeVisible();
+
+  if (key === todayKey()) {
+    await dialog.getByRole('button', { name: 'Today' }).click();
+    return;
+  }
+
+  const date = new Date(`${key}T00:00:00`);
+  const wanted = `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+
+  for (let i = 0; i < 24; i += 1) {
+    const label = (await dialog.locator('p').filter({ hasText: /\d{4}/ }).first().textContent()) ?? '';
+    if (label.trim() === wanted) {
+      break;
+    }
+
+    const [monthName, yearText] = label.trim().split(' ');
+    const cursor = new Date(Number(yearText), MONTHS.indexOf(monthName), 1);
+    if (date < cursor) {
+      await dialog.getByRole('button', { name: 'Previous month' }).click();
+    } else {
+      await dialog.getByRole('button', { name: 'Next month' }).click();
+    }
+  }
+
+  await dialog
+    .locator('div.grid.grid-cols-7')
+    .last()
+    .getByRole('button', { name: String(date.getDate()), exact: true })
+    .first()
+    .click();
+}
+
+async function pickSelect(page: Page, trigger: ReturnType<Page['locator']> | string, option: string) {
+  const button = typeof trigger === 'string' ? page.locator(`#${trigger}`) : trigger;
+  await button.click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}
+
 async function logMeal(
   page: Page,
   meal: string,
@@ -140,14 +203,14 @@ test.describe('Assignment end-to-end', () => {
     await page.locator('#email').fill(email);
     await page.locator('#password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+    await expectToday(page);
     await expect(page.locator('aside').getByText('E2E User')).toBeVisible();
     authToken = await tokenFromPage(page);
   });
 
   test('login: sign out and recapture the session from the database', async ({ page }) => {
     await page.goto('/dashboard');
-    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+    await expectToday(page);
     await page.locator('aside').getByRole('button', { name: 'Sign out' }).click();
     await expect(page.getByRole('heading', { name: 'Calorie Tracker' })).toBeVisible();
     await expect(page.getByText('Sign in to your account.')).toBeVisible();
@@ -156,34 +219,34 @@ test.describe('Assignment end-to-end', () => {
     await page.locator('#email').fill(email);
     await page.locator('#password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+    await expectToday(page);
     await expect(page.locator('aside').getByText('E2E User')).toBeVisible();
   });
 
   test('goal setting: create, update, list, delete', async ({ page }) => {
     await page.goto('/goals');
-    await expect(page.getByRole('heading', { name: 'Set Your Goals' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Goals' })).toBeVisible();
 
-    await page.locator('#effectiveFrom').fill(daysAgoKey(7));
+    await pickDate(page, 'effectiveFrom', daysAgoKey(7));
     await page.getByRole('button', { name: 'Lose fat' }).click();
     await page.locator('#targetWeightKg').fill('62');
     await page.getByRole('button', { name: 'Save goals' }).click();
     await expect(page.getByText(/Targets saved/).first()).toBeVisible();
     await expect(page.getByText('1 version')).toBeVisible();
 
-    await page.locator('#effectiveFrom').fill(todayKey());
+    await pickDate(page, 'effectiveFrom', todayKey());
     await page.getByRole('button', { name: 'Build muscle' }).click();
     await page.getByRole('button', { name: 'Save goals' }).click();
     await expect(page.getByText(/Targets saved/).first()).toBeVisible();
     await expect(page.getByText('2 versions')).toBeVisible();
-    await expect(page.locator('table').getByText('2,600')).toBeVisible();
-    await expect(page.locator('table').getByText('62kg').first()).toBeVisible();
+    await expect(page.getByText('2,600').first()).toBeVisible();
+    await expect(page.getByText(/62\s*kg/).first()).toBeVisible();
 
     await page.reload();
     await expect(page.getByText('2 versions')).toBeVisible();
-    await expect(page.locator('table').getByText('2,600')).toBeVisible();
+    await expect(page.getByText('2,600').first()).toBeVisible();
 
-    const history = page.locator('table').filter({ hasText: 'Effective from' });
+    const history = page.locator('[data-goals="history"]');
     await history.getByRole('button', { name: 'Delete' }).last().click();
     await expect(page.getByText('1 version')).toBeVisible();
     await expect(page.getByText('That target version was deleted.')).toBeVisible();
@@ -191,8 +254,8 @@ test.describe('Assignment end-to-end', () => {
 
   test('meal entry: create breakfast/lunch/dinner/snacks with macros and micros', async ({ page }) => {
     await page.goto('/log');
-    await expect(page.getByRole('heading', { name: 'Log a Meal' })).toBeVisible();
-    await expect(page.getByText(/photo of your meal or nutrition label/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'What did you eat?' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'From a photo' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Add meal' }).click();
     await expect(page.getByText('Food name is required.')).toBeVisible();
@@ -244,7 +307,7 @@ test.describe('Assignment end-to-end', () => {
 
   test('dashboard: recapture meals and goals from the database', async ({ page }) => {
     await page.goto('/dashboard');
-    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+    await expectToday(page);
     await expect(page.getByText('E2E oatmeal').first()).toBeVisible();
     await expect(page.getByText('E2E chicken salad').first()).toBeVisible();
     await page.getByText('E2E salmon').first().scrollIntoViewIfNeeded();
@@ -259,9 +322,11 @@ test.describe('Assignment end-to-end', () => {
 
     const nav = page.locator('aside').getByLabel('Main');
     await nav.getByRole('link', { name: 'Log Meal' }).click();
-    await expect(page.getByRole('heading', { name: 'Log a Meal' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'What did you eat?' })).toBeVisible();
     await nav.getByRole('link', { name: 'Goals' }).click();
-    await expect(page.getByRole('heading', { name: 'Set Your Goals' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Goals' })).toBeVisible();
+    await nav.getByRole('link', { name: 'Weight Tracker' }).click();
+    await expect(page.getByRole('heading', { name: 'Weight Tracker' })).toBeVisible();
     await nav.getByRole('link', { name: 'Entries' }).click();
     await expect(page.getByRole('heading', { name: 'Entries' })).toBeVisible();
     await nav.getByRole('link', { name: 'Reports' }).click();
@@ -271,7 +336,7 @@ test.describe('Assignment end-to-end', () => {
     await nav.getByRole('link', { name: 'Bulk import' }).click();
     await expect(page.getByRole('heading', { name: 'Bulk import' })).toBeVisible();
     await nav.getByRole('link', { name: 'Today' }).click();
-    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+    await expectToday(page);
   });
 
   test('CRUD APIs: persist to the database and reappear in the UI', async ({ page, request }) => {
@@ -422,11 +487,12 @@ test.describe('Assignment end-to-end', () => {
 
     await page.getByRole('button', { name: 'Last 7 days' }).click();
     await expect(table.getByText('E2E oatmeal')).toBeVisible();
-    await page.locator('#from').fill(todayKey());
-    await page.locator('#to').fill(todayKey());
+    await page.getByRole('button', { name: 'Custom' }).click();
+    await pickDate(page, 'from', todayKey());
+    await pickDate(page, 'to', todayKey());
     await expect(table.getByText('E2E oatmeal')).toBeVisible();
 
-    await page.locator('#mealType').selectOption('breakfast');
+    await pickSelect(page, 'mealType', 'Breakfast');
     await expect(table.getByText('E2E oatmeal')).toBeVisible();
     await expect(table.getByText('E2E chicken salad')).toHaveCount(0);
 
@@ -470,7 +536,7 @@ test.describe('Assignment end-to-end', () => {
 
     await page.reload();
     await page.getByRole('button', { name: 'Today' }).click();
-    await page.getByLabel('Entries per page').selectOption('10');
+    await pickSelect(page, page.getByLabel('Entries per page'), '10');
     await expect(page.getByText(/Page 1 of /)).toBeVisible();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.getByText(/Page 2 of /)).toBeVisible();
@@ -490,7 +556,7 @@ test.describe('Assignment end-to-end', () => {
     await expect(page.locator('.recharts-responsive-container').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Download PDF/i })).toBeVisible();
 
-    await page.getByRole('button', { name: '7 days' }).click();
+    await page.getByRole('button', { name: 'Last 7 days' }).click();
     await expect(page.getByRole('heading', { name: 'Daily calories' })).toBeVisible();
     await expect(page.getByText('Vitamin A')).toBeVisible();
 
@@ -570,7 +636,7 @@ test.describe('Assignment end-to-end', () => {
     expect(current.goal).toBeNull();
 
     await page.goto('/dashboard');
-    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+    await expectToday(page);
     await expect(page.getByText('E2E oatmeal').first()).toBeVisible();
 
     const guest = await browser.newContext();
@@ -579,7 +645,7 @@ test.describe('Assignment end-to-end', () => {
     await loginPage.locator('#email').fill(email);
     await loginPage.locator('#password').fill(PASSWORD);
     await loginPage.getByRole('button', { name: 'Sign in' }).click();
-    await expect(loginPage.getByRole('heading', { name: 'Today' })).toBeVisible();
+    await expectToday(loginPage);
     await expect(loginPage.getByText('E2E oatmeal').first()).toBeVisible();
     await guest.close();
   });

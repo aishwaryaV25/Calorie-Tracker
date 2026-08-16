@@ -5,7 +5,7 @@ export function NavIcon({
   name,
   className = 'size-4',
 }: {
-  name: 'today' | 'log' | 'goals' | 'entries' | 'reports' | 'chat' | 'import' | 'bite';
+  name: 'today' | 'log' | 'goals' | 'weight' | 'entries' | 'reports' | 'chat' | 'import' | 'bite';
   className?: string;
 }): ReactNode {
   const props = {
@@ -39,6 +39,14 @@ export function NavIcon({
           <circle cx="12" cy="12" r="8" />
           <circle cx="12" cy="12" r="4" />
           <circle cx="12" cy="12" r="1" fill="currentColor" />
+        </svg>
+      );
+    case 'weight':
+      return (
+        <svg {...props}>
+          <path d="M7 8h10l1.5 12H5.5z" />
+          <path d="M9 8V6.5A3 3 0 0 1 15 6.5V8" />
+          <path d="M12 12v4" />
         </svg>
       );
     case 'entries':

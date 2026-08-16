@@ -13,7 +13,9 @@ import { MacroBreakdownChart } from '@/components/reports/MacroBreakdownChart';
 import { MicronutrientTable } from '@/components/reports/MicronutrientTable';
 import {
   defaultRange,
+  queryRange,
   rangeDays,
+  rangeLabel,
   ReportRangePicker,
   type DateRange,
 } from '@/components/reports/ReportRangePicker';
@@ -31,10 +33,10 @@ const MICRONUTRIENTS_PER_PAGE = 8;
  */
 function rangeWarning(range: DateRange): string | null {
   if (!range.from || !range.to) {
-    return 'Enter both a start and an end date. Until then the reports show the last 30 days.';
+    return 'Enter both a start and an end date. Until then the reports stay on the last 30 days.';
   }
 
-  return rangeDays(range) === null ? 'The start date must be on or before the end date.' : null;
+  return rangeDays(range) === null ? 'Those dates could not be read.' : null;
 }
 
 export default function ReportsPage() {
@@ -48,27 +50,29 @@ export default function ReportsPage() {
   const dailyPageSize = Math.min(days ?? 30, MAX_ROWS_PER_PAGE);
   const weeklyPageSize = Math.min(Math.ceil((days ?? 30) / 7) + 1, MAX_ROWS_PER_PAGE);
 
+  const dates = queryRange(range);
+
   const daily = useAsync(
-    () => api.reports.daily({ ...range, pageSize: dailyPageSize }),
-    [range.from, range.to, dailyPageSize, dataRevision],
+    () => api.reports.daily({ ...dates, pageSize: dailyPageSize }),
+    [dates.from, dates.to, dailyPageSize, dataRevision],
   );
   const weekly = useAsync(
-    () => api.reports.weekly({ ...range, pageSize: weeklyPageSize }),
-    [range.from, range.to, weeklyPageSize, dataRevision],
+    () => api.reports.weekly({ ...dates, pageSize: weeklyPageSize }),
+    [dates.from, dates.to, weeklyPageSize, dataRevision],
   );
-  const macros = useAsync(() => api.reports.macros({ ...range }), [range.from, range.to, dataRevision]);
+  const macros = useAsync(() => api.reports.macros(dates), [dates.from, dates.to, dataRevision]);
   const comparison = useAsync(
-    () => api.reports.goalComparison({ ...range }),
-    [range.from, range.to, dataRevision],
+    () => api.reports.goalComparison(dates),
+    [dates.from, dates.to, dataRevision],
   );
   const micronutrients = useAsync(
     () =>
       api.reports.micronutrients({
-        ...range,
+        ...dates,
         page: microPage,
         pageSize: MICRONUTRIENTS_PER_PAGE,
       }),
-    [range.from, range.to, microPage, dataRevision],
+    [dates.from, dates.to, microPage, dataRevision],
   );
 
   function applyRange(next: DateRange) {
@@ -91,9 +95,10 @@ export default function ReportsPage() {
     <div className="flex flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Reports</h1>
-          <p className="text-sm text-muted">
-            Calorie trends, macro split, micronutrients and how it all compares to your goal.
+          <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Nutrition</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Reports</h1>
+          <p className="mt-1 text-sm text-muted">
+            Calorie trends, macros, and how they compare to your goal.
           </p>
         </div>
         <Link href="/log">
@@ -101,20 +106,16 @@ export default function ReportsPage() {
         </Link>
       </header>
 
-      {/* The range and the button that acts on it share one box, so it is obvious
-          the download covers the dates shown beside it. */}
-      <Card>
-        <ReportRangePicker
-          value={range}
-          onChange={applyRange}
-          action={
-            <DownloadReportButton
-              range={range}
-              isDisabled={warning !== null}
-              onError={setDownloadError}
-            />
-          }
-        />
+      <Card className="rounded-2xl">
+        <ReportRangePicker value={range} onChange={applyRange} />
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          <p className="text-sm text-muted">{rangeLabel(range)}</p>
+          <DownloadReportButton
+            range={range}
+            isDisabled={warning !== null}
+            onError={setDownloadError}
+          />
+        </div>
       </Card>
 
       {/* A bad range fails every request the same way, so the warning already

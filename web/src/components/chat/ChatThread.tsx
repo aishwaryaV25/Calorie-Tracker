@@ -3,12 +3,14 @@
 import { useEffect, useRef } from 'react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { Button, cx } from '@/components/ui';
-import type { ChatAction, ChatPendingAction, ChatTurn } from '@/lib/types';
+import { saveChatDownload } from '@/lib/download-file';
+import type { ChatAction, ChatDownload, ChatPendingAction, ChatTurn } from '@/lib/types';
 
 export interface ThreadTurn extends ChatTurn {
   id: string;
   actions?: ChatAction[];
   pendingAction?: ChatPendingAction | null;
+  download?: ChatDownload;
 }
 
 interface ChatThreadProps {
@@ -51,9 +53,18 @@ export function ChatThread({ turns, isThinking, onChoose, onConfirm }: ChatThrea
                 {turn.actions.map((action, index) => (
                   <li
                     key={`${turn.id}-${index}`}
-                    className="rounded-xl border border-accent/20 bg-accent-soft px-3 py-2 text-xs text-accent"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-accent/20 bg-accent-soft px-3 py-2 text-xs text-accent"
                   >
-                    {action.label}
+                    <span>{action.label}</span>
+                    {action.type === 'report_ready' && turn.download && (
+                      <Button
+                        variant="ghost"
+                        className="px-2 py-1 text-xs text-accent hover:text-accent-hover"
+                        onClick={() => saveChatDownload(turn.download!)}
+                      >
+                        Save PDF
+                      </Button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -127,7 +138,7 @@ export function ChatThread({ turns, isThinking, onChoose, onConfirm }: ChatThrea
 function AssistantOrUserBody({ turn }: { turn: ThreadTurn }) {
   if (turn.role === 'user') {
     return (
-      <div className="rounded-2xl bg-accent-soft px-4 py-3 text-sm whitespace-pre-wrap text-foreground">
+      <div className="rounded-2xl bg-foreground px-4 py-3 text-sm whitespace-pre-wrap text-on-accent">
         {turn.content}
       </div>
     );

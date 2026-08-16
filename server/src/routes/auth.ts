@@ -9,10 +9,11 @@ import * as authService from '../services/authService.js';
 
 export const authRouter = Router();
 
-authRouter.use(rateLimit({ name: 'auth', max: 20, windowMs: 60_000 }));
+const authAttemptLimit = rateLimit({ name: 'auth', max: 20, windowMs: 60_000 });
 
 authRouter.post(
   '/signup',
+  authAttemptLimit,
   signupValidators,
   handleValidation,
   asyncHandler(async (req, res) => {
@@ -22,6 +23,7 @@ authRouter.post(
 
 authRouter.post(
   '/login',
+  authAttemptLimit,
   loginValidators,
   handleValidation,
   asyncHandler(async (req, res) => {

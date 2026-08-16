@@ -47,7 +47,7 @@ export function resetRateLimits() {
 
 export function rateLimit(options: RateLimitOptions): RequestHandler {
   return (req, _res, next) => {
-    if (config.isTest) {
+    if (config.isTest || config.nodeEnv === 'development') {
       next();
       return;
     }

@@ -22,6 +22,63 @@ export interface DateRange {
   to: string;
 }
 
+export const REPORT_PERIODS = ['last_week', 'this_week', 'last_7_days', 'this_month', 'last_month'] as const;
+export type ReportPeriod = (typeof REPORT_PERIODS)[number];
+
+/**
+ * The window a PDF report should cover. Named dates win; otherwise a period;
+ * otherwise the previous ISO week — "give me a report" with no dates.
+ */
+export function resolveReportWindow(input: {
+  today: string;
+  from?: string;
+  to?: string;
+  period?: string;
+}): DateRange {
+  const from = asDateKey(input.from);
+  const to = asDateKey(input.to);
+
+  if (from && to) {
+    return from <= to ? { from, to } : { from: to, to: from };
+  }
+
+  if (from) {
+    return { from, to: input.today };
+  }
+
+  if (to) {
+    return { from: to, to };
+  }
+
+  const period = (REPORT_PERIODS as readonly string[]).includes(input.period ?? '')
+    ? (input.period as ReportPeriod)
+    : 'last_week';
+
+  if (period === 'last_7_days') {
+    return { from: toDateKey(addDays(fromDateKey(input.today), -6)), to: input.today };
+  }
+
+  const spoken: Record<Exclude<ReportPeriod, 'last_7_days'>, string> = {
+    last_week: 'last week',
+    this_week: 'this week',
+    this_month: 'this month',
+    last_month: 'last month',
+  };
+
+  return resolveDateRange(spoken[period], input.today) ?? {
+    from: toDateKey(addDays(fromDateKey(input.today), -6)),
+    to: input.today,
+  };
+}
+
+function asDateKey(value?: string): string | undefined {
+  const candidate = value?.trim().slice(0, 10);
+  if (!candidate || !DATE_KEY.test(candidate) || Number.isNaN(Date.parse(candidate))) {
+    return undefined;
+  }
+  return candidate;
+}
+
 /**
  * Turns a spoken day or window into YYYY-MM-DD keys, anchored on the caller's
  * own calendar day. The model is not asked to do this arithmetic.

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { api } from '@/lib/api-client';
 import { Button } from '@/components/ui';
-import type { DateRange } from './ReportRangePicker';
+import { queryRange, type DateRange } from './ReportRangePicker';
 
 /**
  * Builds the PDF report for a range and hands it to the browser to save.
@@ -28,7 +28,7 @@ export function DownloadReportButton({
     onError(null);
 
     try {
-      const { blob, filename } = await api.reports.pdf({ ...range });
+      const { blob, filename } = await api.reports.pdf(queryRange(range));
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
 
@@ -52,7 +52,7 @@ export function DownloadReportButton({
       isLoading={isBuilding}
       disabled={isDisabled}
       className="px-3 py-1.5 text-xs"
-      title="Download this range as a PDF report"
+      title="Download a PDF of this date range"
     >
       {!isBuilding && <DownloadIcon />}
       {isBuilding ? 'Building…' : 'Download PDF'}
