@@ -64,12 +64,12 @@ export function AuthForm({ mode }: AuthFormProps) {
     >
       <AuthFilm mode={mode} />
 
-      <section className="relative flex flex-col justify-center border-border px-5 py-10 sm:px-10 lg:border-l">
+      <section className="relative flex flex-col justify-center border-border px-5 py-8 sm:px-10 sm:py-10 lg:border-l">
         <div data-auth="form" className="mx-auto w-full max-w-[22.5rem]">
           <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">
             {isSignup ? 'Get started' : 'Sign in'}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Calorie Tracker</h1>
+          <h1 className="mt-2 text-[1.75rem] font-semibold tracking-tight sm:text-3xl">Calorie Tracker</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             {isSignup ? 'Create an account to start logging meals.' : 'Sign in to your account.'}
           </p>

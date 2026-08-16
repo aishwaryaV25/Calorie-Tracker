@@ -41,9 +41,9 @@ export function LandingPage() {
 
   return (
     <div ref={rootRef} className="min-h-dvh bg-surface text-foreground">
-      <header className="sticky top-0 z-20 border-b border-border/70 bg-surface/90 backdrop-blur">
-        <div className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-8 lg:px-12">
-          <Link href="/" className="justify-self-start" aria-label="Calorie, by Typeface">
+      <header className="sticky top-0 z-20 border-b border-border/70 bg-surface/90 pt-[env(safe-area-inset-top)] backdrop-blur">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-8 lg:px-12">
+          <Link href="/" className="flex items-center" aria-label="Calorie, by Typeface">
             <BrandMark size={22} />
           </Link>
           <nav className="hidden items-center gap-6 text-sm text-muted md:flex" aria-label="Marketing">
@@ -53,64 +53,58 @@ export function LandingPage() {
               </a>
             ))}
           </nav>
-          <div className="flex items-center justify-end gap-2 justify-self-end">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <Link href="/login">
-              <Button variant="ghost" className="px-3">
+              <Button variant="ghost" className="h-9 px-2.5 !py-0 sm:px-3">
                 Log in
               </Button>
             </Link>
             <Link href="/signup">
-              <Button>Get started</Button>
+              <Button className="h-9 whitespace-nowrap px-3 !py-0 sm:px-4">Get started</Button>
             </Link>
           </div>
         </div>
-        <nav
-          className="flex gap-4 overflow-x-auto px-4 pb-3 text-sm text-muted [scrollbar-width:none] md:hidden"
-          aria-label="Marketing"
-        >
-          {NAV.map((item) => (
-            <a key={item.href} href={item.href} className="shrink-0 hover:text-foreground">
-              {item.label}
-            </a>
-          ))}
-        </nav>
       </header>
 
       <main>
-        <section className="grid items-center gap-12 px-4 py-16 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:px-12 lg:py-24">
+        <section className="grid items-center gap-8 px-4 py-10 sm:gap-12 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:px-12 lg:py-24">
           <div data-land="hero-copy" className="max-w-xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-raised px-3 py-1 text-xs text-muted">
               <span className="size-1.5 rounded-full bg-accent" />
               A diary for what you actually ate
             </p>
-            <h1 className="mt-6 text-[2.65rem] font-semibold leading-[1.04] tracking-tight sm:text-6xl lg:text-7xl">
+            <h1 className="mt-5 text-[2.15rem] font-semibold leading-[1.06] tracking-tight sm:mt-6 sm:text-6xl lg:text-7xl">
               Eat smart.
               <br />
               <span className="text-accent">Live better.</span>
             </h1>
-            <p className="mt-6 max-w-md text-base leading-relaxed text-muted">
+            <p className="mt-5 max-w-md text-base leading-relaxed text-muted sm:mt-6">
               Calories, protein, carbs and fat — logged from a meal, a photo or a
               sentence. Bite sits on the page and tells you what still fits. It will
               not write a row for you.
             </p>
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link href="/signup">
-                <Button className="px-5 py-2.5">Start tracking for free</Button>
+            <div className="mt-7 flex w-full flex-col gap-2.5 sm:mt-9 sm:w-auto sm:flex-row sm:flex-wrap sm:gap-3">
+              <Link href="/signup" className="w-full sm:w-auto">
+                <Button className="h-11 w-full whitespace-nowrap px-5 sm:h-auto sm:w-auto sm:py-2.5">
+                  Start tracking for free
+                </Button>
               </Link>
-              <a href="#features">
-                <Button variant="secondary" className="px-5 py-2.5">
+              <a href="#features" className="w-full sm:w-auto">
+                <Button variant="secondary" className="h-11 w-full whitespace-nowrap px-5 sm:h-auto sm:w-auto sm:py-2.5">
                   See how it works
                 </Button>
               </a>
             </div>
-            <p className="mt-6 text-sm text-subtle">Breakfast, lunch, dinner, snacks. Your data stays yours.</p>
+            <p className="mt-5 text-sm text-subtle sm:mt-6">Breakfast, lunch, dinner, snacks. Your data stays yours.</p>
           </div>
 
-          <ExtractPreview />
+          <div className="-mx-4 sm:mx-0">
+            <ExtractPreview />
+          </div>
         </section>
 
         <section id="at-a-glance" className="border-t border-border bg-foreground text-on-accent">
-          <ul className="grid gap-8 px-4 py-10 sm:grid-cols-3 sm:px-8 lg:px-12">
+          <ul className="grid gap-6 px-4 py-8 sm:grid-cols-3 sm:gap-8 sm:px-8 sm:py-10 lg:px-12">
             {STATS.map((stat) => (
               <li key={stat.label} data-land="stat" className="text-center sm:text-left">
                 <p className="text-3xl font-semibold tracking-tight">{stat.value}</p>
@@ -120,7 +114,7 @@ export function LandingPage() {
           </ul>
         </section>
 
-        <section id="features" className="overflow-x-clip border-t border-border px-4 py-16 sm:px-8 lg:px-12 lg:py-20">
+        <section id="features" className="overflow-x-clip border-t border-border px-4 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
           <p data-feat="kicker" className="text-xs uppercase tracking-[0.16em] text-subtle">
             What it does
           </p>
@@ -138,7 +132,7 @@ export function LandingPage() {
 
         <BiteFeature />
 
-        <section id="how-it-works" className="border-t border-border bg-surface-raised px-4 py-16 sm:px-8 lg:px-12 lg:py-20">
+        <section id="how-it-works" className="border-t border-border bg-surface-raised px-4 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
           <p className="text-xs uppercase tracking-[0.16em] text-subtle">How it works</p>
           <h2 className="mt-2 text-3xl font-semibold tracking-tight">Three steps, one record.</h2>
           <ol className="mt-10 grid gap-5 md:grid-cols-3">
@@ -156,7 +150,7 @@ export function LandingPage() {
           </ol>
         </section>
 
-        <section id="paths" className="border-t border-border px-4 py-16 sm:px-8 lg:px-12">
+        <section id="paths" className="border-t border-border px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
           <p className="text-xs uppercase tracking-[0.16em] text-subtle">Every path</p>
           <h2 className="mt-2 max-w-md text-3xl font-semibold tracking-tight">
             Type it, shoot it, import it or say it. Same row.
@@ -171,22 +165,24 @@ export function LandingPage() {
           </ul>
         </section>
 
-        <section className="border-t border-border bg-foreground px-4 py-16 text-on-accent sm:px-8 lg:px-12">
-          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+        <section className="border-t border-border bg-foreground px-4 py-12 text-on-accent sm:px-8 sm:py-16 lg:px-12">
+          <div className="flex flex-col items-stretch justify-between gap-6 md:flex-row md:items-end">
             <div>
               <h2 className="text-3xl font-semibold tracking-tight">Sit down. Log the plate.</h2>
               <p className="mt-2 max-w-md text-sm text-white/60">
                 Free to start. Goals, meals, reports, chat and Bite — one diary.
               </p>
             </div>
-            <Link href="/signup">
-              <Button className="bg-accent px-5 py-2.5 hover:bg-accent-hover">Start tracking for free</Button>
+            <Link href="/signup" className="w-full md:w-auto">
+              <Button className="h-11 w-full whitespace-nowrap bg-accent px-5 hover:bg-accent-hover md:h-auto md:w-auto md:py-2.5">
+                Start tracking for free
+              </Button>
             </Link>
           </div>
         </section>
       </main>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-6 sm:px-8 lg:px-12">
+      <footer className="flex flex-col items-start justify-between gap-3 border-t border-border px-4 py-6 sm:flex-row sm:items-center sm:px-8 lg:px-12">
         <Link href="/" aria-label="Calorie, by Typeface">
           <BrandMark size={32} />
         </Link>

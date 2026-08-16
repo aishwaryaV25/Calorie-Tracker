@@ -6,7 +6,7 @@ export function ExtractPreview() {
   return (
     <aside
       data-land="preview"
-      className="w-full overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_18px_50px_rgb(17_17_19/0.08)]"
+      className="w-full overflow-hidden rounded-none border-y border-border bg-surface sm:rounded-2xl sm:border sm:shadow-[0_18px_50px_rgb(17_17_19/0.08)]"
     >
       <Image
         src="/brand/hero-log-meal.png"

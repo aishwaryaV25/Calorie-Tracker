@@ -119,7 +119,7 @@ export default function EntriesPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Diary</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Entries</h1>
+          <h1 className="mt-1 text-[1.65rem] font-semibold tracking-tight sm:text-3xl">Entries</h1>
           <p className="mt-1 text-sm text-muted">Everything you&apos;ve logged, searchable and filterable.</p>
         </div>
         <Link href="/log">

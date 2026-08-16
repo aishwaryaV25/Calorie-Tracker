@@ -100,7 +100,7 @@ export default function ChatPage() {
       <div className="flex flex-col gap-4">
         <header>
           <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Tools</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Chat support</h1>
+          <h1 className="mt-1 text-[1.65rem] font-semibold tracking-tight sm:text-3xl">Chat support</h1>
         </header>
         <EmptyState
           title="Chat is switched off"
@@ -120,7 +120,7 @@ export default function ChatPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Tools</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Chat support</h1>
+          <h1 className="mt-1 text-[1.65rem] font-semibold tracking-tight sm:text-3xl">Chat support</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
             Your nutrition assistant can log meals, read a photo or PDF, make changes with your
             approval, and generate a report PDF for last week or any range you name. Nothing from

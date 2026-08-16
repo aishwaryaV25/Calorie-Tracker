@@ -86,7 +86,7 @@ export default function ReportsPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Nutrition</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Reports</h1>
+          <h1 className="mt-1 text-[1.65rem] font-semibold tracking-tight sm:text-3xl">Reports</h1>
           <p className="mt-1 text-sm text-muted">
             Calorie trends, macros, and how they compare to your goal.
           </p>
@@ -108,7 +108,6 @@ export default function ReportsPage() {
         </div>
       </Card>
 
-      {}
       {warning ? (
         <Alert tone="warning">{warning}</Alert>
       ) : (

@@ -123,16 +123,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-white/50 bg-white/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl lg:hidden">
+        <header className="sticky top-0 z-20 border-b border-border bg-white pt-[env(safe-area-inset-top)] lg:hidden">
           <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-            <Link href="/dashboard">
-              <BrandMark size={26} />
+            <Link href="/dashboard" className="flex items-center">
+              <BrandMark size={22} />
             </Link>
             <BiteNavChip />
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-6 lg:pb-6">
+        <main className="flex-1 px-4 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-5 lg:px-8 lg:py-6 lg:pb-6">
           {children}
         </main>
 
@@ -232,10 +232,10 @@ function MobileDock({
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-white/60 bg-white/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgb(17_17_19/0.06)] backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white pb-[env(safe-area-inset-bottom)] lg:hidden"
       aria-label="Primary"
     >
-      <div className="grid grid-cols-5 px-1 pt-1">
+      <div className="grid h-14 grid-cols-5">
         {MOBILE_TABS.map((item) => {
           const active = !moreOpen && isActivePath(pathname, item.href);
 
@@ -245,11 +245,13 @@ function MobileDock({
               href={item.href}
               aria-current={active ? 'page' : undefined}
               className={cx(
-                'flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-medium tracking-wide',
+                'flex flex-col items-center justify-center gap-1 text-[10px] font-medium leading-none tracking-wide',
                 active ? 'text-accent' : 'text-muted',
               )}
             >
-              <NavIcon name={item.icon} className="size-[1.15rem]" />
+              <span className="grid size-5 place-items-center">
+                <NavIcon name={item.icon} className="size-5" />
+              </span>
               {item.label}
             </Link>
           );
@@ -260,11 +262,13 @@ function MobileDock({
           aria-controls="mobile-more"
           onClick={onToggleMore}
           className={cx(
-            'flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-medium tracking-wide',
+            'flex flex-col items-center justify-center gap-1 text-[10px] font-medium leading-none tracking-wide',
             moreActive ? 'text-accent' : 'text-muted',
           )}
         >
-          <MoreIcon />
+          <span className="grid size-5 place-items-center">
+            <MoreIcon />
+          </span>
           More
         </button>
       </div>
@@ -286,7 +290,7 @@ function MoreSheet({
   const extras = [...NUTRITION.filter((item) => item.href !== '/weight'), ...TOOLS];
 
   return (
-    <div className="fixed inset-0 z-40 lg:hidden">
+    <div className="fixed inset-0 z-[60] lg:hidden">
       <button
         type="button"
         aria-label="Close menu"
@@ -350,7 +354,7 @@ function MoreSheet({
 
 function MoreIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="size-[1.15rem]" fill="currentColor" aria-hidden>
+    <svg viewBox="0 0 24 24" className="size-5" fill="currentColor" aria-hidden>
       <circle cx="6" cy="12" r="1.6" />
       <circle cx="12" cy="12" r="1.6" />
       <circle cx="18" cy="12" r="1.6" />
@@ -360,7 +364,7 @@ function MoreIcon() {
 
 function NewMark() {
   return (
-    <sup className="ml-1 align-super text-[9px] font-semibold tracking-[0.08em] text-accent">NEW</sup>
+    <span className="ml-1 text-[9px] font-semibold tracking-[0.08em] text-accent">NEW</span>
   );
 }
 
@@ -390,7 +394,7 @@ function BiteNavChip() {
     <button
       type="button"
       onClick={openBite}
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/70 bg-white/60 px-3 py-1.5 text-sm font-medium text-foreground shadow-[0_1px_0_rgb(255_255_255/0.8)] backdrop-blur-md"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-sm font-medium leading-none text-foreground"
     >
       <NavIcon name="bite" />
       Bite

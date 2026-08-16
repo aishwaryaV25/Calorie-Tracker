@@ -11,7 +11,7 @@ export function BrandMark({
   const markWidth = Math.round(size * (536 / 660));
 
   return (
-    <span className="inline-flex items-end leading-none" style={{ gap: 0 }}>
+    <span className="inline-flex items-center leading-none" style={{ gap: 0 }}>
       <Image
         src="/brand/logo-c.png"
         alt={withName ? 'Calorie, by Typeface' : ''}
@@ -22,7 +22,7 @@ export function BrandMark({
       />
       {withName && (
         <span
-          className="mb-px whitespace-nowrap text-muted"
+          className="mb-[1px] whitespace-nowrap text-muted"
           style={{
             marginLeft: 2,
             fontFamily: 'Arial, Helvetica, sans-serif',

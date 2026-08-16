@@ -23,7 +23,7 @@ export function AuthFilm({ mode }: { mode: 'login' | 'signup' }) {
   const copy = COPY[mode];
 
   return (
-    <aside className="relative isolate min-h-[16rem] overflow-hidden bg-foreground text-on-accent sm:min-h-[24rem] lg:min-h-dvh">
+    <aside className="relative isolate min-h-[12rem] overflow-hidden bg-foreground text-on-accent sm:min-h-[24rem] lg:min-h-dvh">
       <Image
         src="/brand/auth-table.jpg"
         alt=""
@@ -37,7 +37,7 @@ export function AuthFilm({ mode }: { mode: 'login' | 'signup' }) {
       <div className="absolute inset-0 bg-accent/10 mix-blend-multiply" />
       <Grain />
 
-      <div className="relative z-10 flex h-full min-h-[16rem] flex-col justify-between px-5 py-5 sm:min-h-[24rem] sm:px-8 sm:py-8 lg:min-h-dvh lg:px-10 lg:py-10">
+      <div className="relative z-10 flex h-full min-h-[12rem] flex-col justify-between px-5 py-4 sm:min-h-[24rem] sm:px-8 sm:py-8 lg:min-h-dvh lg:px-10 lg:py-10">
         <Link
           href="/"
           className="self-start [&_img]:brightness-0 [&_img]:invert [&_span]:text-white/55"
@@ -54,8 +54,8 @@ export function AuthFilm({ mode }: { mode: 'login' | 'signup' }) {
           <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl lg:text-[2.65rem] lg:leading-[1.08]">
             {copy.title}
           </h2>
-          <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/70">{copy.body}</p>
-          <ul className="mt-6 flex flex-wrap gap-2">
+          <p className="mt-3 hidden max-w-sm text-sm leading-relaxed text-white/70 sm:block">{copy.body}</p>
+          <ul className="mt-6 hidden flex-wrap gap-2 sm:flex">
             {copy.facts.map((fact) => (
               <li
                 key={fact}

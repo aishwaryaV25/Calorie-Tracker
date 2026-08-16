@@ -48,7 +48,7 @@ export function GoalsHero({
   return (
     <aside
       data-goals="hero"
-      className="relative min-h-[18rem] overflow-hidden rounded-2xl bg-foreground text-on-accent xl:min-h-[36rem] xl:sticky xl:top-6"
+      className="relative min-h-[14rem] overflow-hidden rounded-2xl bg-foreground text-on-accent xl:min-h-[36rem] xl:sticky xl:top-6"
     >
       <video
         ref={videoRef}
@@ -64,7 +64,7 @@ export function GoalsHero({
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/20" />
       <div className="absolute inset-0 bg-accent/10 mix-blend-multiply" />
 
-      <div className="relative z-10 flex min-h-[18rem] flex-col justify-between px-5 py-6 xl:min-h-[36rem]">
+      <div className="relative z-10 flex min-h-[14rem] flex-col justify-between px-5 py-5 xl:min-h-[36rem] xl:py-6">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Your pace</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight xl:text-[1.7rem]">

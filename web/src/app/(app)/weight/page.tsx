@@ -68,7 +68,7 @@ export default function WeightPage() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Nutrition</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Weight Tracker</h1>
+          <h1 className="mt-1 text-[1.65rem] font-semibold tracking-tight sm:text-3xl">Weight Tracker</h1>
           <p className="mt-1 text-sm text-muted">The scale is a log, not a verdict.</p>
           <button
             type="button"

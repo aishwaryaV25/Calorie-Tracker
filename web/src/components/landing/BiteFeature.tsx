@@ -3,7 +3,7 @@ import { Button } from '@/components/ui';
 
 export function BiteFeature() {
   return (
-    <section id="bite" className="border-t border-border bg-foreground px-4 py-16 text-on-accent sm:px-8 lg:px-12 lg:py-20">
+    <section id="bite" className="border-t border-border bg-foreground px-4 py-12 text-on-accent sm:px-8 sm:py-16 lg:px-12 lg:py-20">
       <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_16rem]">
         <div data-land="bite">
           <p className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/45">
@@ -28,8 +28,10 @@ export function BiteFeature() {
             ))}
           </ul>
           <div className="mt-8">
-            <Link href="/signup">
-              <Button className="bg-accent px-5 py-2.5 hover:bg-accent-hover">Get Bite with your diary</Button>
+            <Link href="/signup" className="block w-full sm:inline-block sm:w-auto">
+              <Button className="h-11 w-full whitespace-nowrap bg-accent px-5 hover:bg-accent-hover sm:h-auto sm:w-auto sm:py-2.5">
+                Get Bite with your diary
+              </Button>
             </Link>
           </div>
         </div>

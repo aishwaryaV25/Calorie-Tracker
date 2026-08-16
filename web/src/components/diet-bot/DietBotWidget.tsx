@@ -247,7 +247,7 @@ export function DietBotWidget() {
   const panelTop = openUp ? pos.y - GAP - panelHeight : pos.y + BUTTON + GAP;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-50">
+    <div className="pointer-events-none fixed inset-0 z-40">
       {open && narrow && (
         <button
           type="button"

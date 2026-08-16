@@ -76,9 +76,9 @@ export default function DashboardPage() {
       <header data-today="head" className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Today</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">{weekday}</h1>
+          <h1 className="mt-1 text-[1.65rem] font-semibold tracking-tight sm:text-3xl">{weekday}</h1>
         </div>
-        <Button onClick={() => setComposingMeal('breakfast')}>Add entry</Button>
+        <Button className="shrink-0" onClick={() => setComposingMeal('breakfast')}>Add entry</Button>
       </header>
 
       {entries.error && <Alert>{entries.error}</Alert>}

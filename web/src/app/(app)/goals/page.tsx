@@ -65,7 +65,7 @@ export default function GoalsPage() {
     <div ref={rootRef} className="flex flex-col gap-5">
       <header data-goals="head">
         <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Nutrition</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Goals</h1>
+        <h1 className="mt-1 text-[1.65rem] font-semibold tracking-tight sm:text-3xl">Goals</h1>
         <p className="mt-1 text-sm text-muted">The film holds the live target. The desk is where you change it.</p>
       </header>
 

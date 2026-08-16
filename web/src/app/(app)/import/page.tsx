@@ -124,7 +124,7 @@ export default function ImportPage() {
       <header className={reviewing ? 'flex flex-wrap items-end justify-between gap-3' : undefined}>
         <div>
           <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Tools</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Bulk import</h1>
+          <h1 className="mt-1 text-[1.65rem] font-semibold tracking-tight sm:text-3xl">Bulk import</h1>
           {!reviewing && (
             <p className="mt-1 text-sm text-muted">
               Upload a food diary, nutrition report or meal history and let the app structure it.
