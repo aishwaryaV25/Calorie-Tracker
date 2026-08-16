@@ -5,7 +5,7 @@ export function NavIcon({
   name,
   className = 'size-4',
 }: {
-  name: 'today' | 'log' | 'goals' | 'entries' | 'reports' | 'chat' | 'import';
+  name: 'today' | 'log' | 'goals' | 'entries' | 'reports' | 'chat' | 'import' | 'bite';
   className?: string;
 }): ReactNode {
   const props = {
@@ -66,6 +66,15 @@ export function NavIcon({
         <svg {...props}>
           <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z" />
           <path d="M14 3v6h6M12 12v5M9.5 15.5 12 18l2.5-2.5" />
+        </svg>
+      );
+    case 'bite':
+      return (
+        <svg {...props}>
+          <path d="M5 11.5c0-3.6 3.1-6.5 7-6.5s7 2.9 7 6.5-3.1 6.5-7 6.5c-.7 0-1.4-.1-2-.3L6 19l.8-2.6C5.7 15.4 5 13.6 5 11.5Z" />
+          <circle cx="9.2" cy="11.2" r="0.9" fill="currentColor" />
+          <circle cx="12" cy="11.2" r="0.9" fill="currentColor" />
+          <circle cx="14.8" cy="11.2" r="0.9" fill="currentColor" />
         </svg>
       );
   }

@@ -3,6 +3,7 @@
 import { Badge, Button } from '@/components/ui';
 import { formatCalories, formatClock, formatDateKey, formatGrams } from '@/lib/format';
 import { MEAL_LABELS, type FoodEntry } from '@/lib/types';
+import { SourceBadge } from './SourceBadge';
 
 interface EntriesTableProps {
   entries: FoodEntry[];
@@ -10,13 +11,6 @@ interface EntriesTableProps {
   onEdit: (entry: FoodEntry) => void;
   onDelete: (entry: FoodEntry) => void;
 }
-
-const SOURCE_LABEL: Record<FoodEntry['source'], string> = {
-  manual: 'manual',
-  image: 'AI',
-  pdf: 'PDF',
-  chat: 'chat',
-};
 
 /**
  * Stacked cards on small screens and a full table on large ones. Micros stay
@@ -33,7 +27,7 @@ export function EntriesTable({ entries, deletingId, onEdit, onDelete }: EntriesT
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate text-sm font-medium">{entry.foodName}</p>
                   <Badge>{MEAL_LABELS[entry.mealType]}</Badge>
-                  <Badge tone="accent">{SOURCE_LABEL[entry.source]}</Badge>
+                  <SourceBadge source={entry.source} />
                 </div>
                 <p className="mt-0.5 text-xs text-muted">
                   {formatDateKey(entry.consumedOn)} at {formatClock(entry.consumedAt)} · {entry.quantity}{' '}
@@ -76,17 +70,17 @@ export function EntriesTable({ entries, deletingId, onEdit, onDelete }: EntriesT
               <th className="pb-3 font-medium">Meal</th>
               <th className="pb-3 text-right font-medium">Quantity</th>
               <th className="pb-3 text-right font-medium">Calories</th>
-              <th className="pb-3 text-right font-medium">Protein</th>
-              <th className="pb-3 text-right font-medium">Carbs</th>
-              <th className="pb-3 text-right font-medium">Fat</th>
-              <th className="pb-3 text-right font-medium">Micros</th>
-              <th className="pb-3 font-medium">Source</th>
+              <th className="pb-3 text-right font-medium">Protein (g)</th>
+              <th className="pb-3 text-right font-medium">Carbs (g)</th>
+              <th className="pb-3 text-right font-medium">Fat (g)</th>
+              <th className="px-3 pb-3 text-center font-medium">Micros</th>
+              <th className="px-3 pb-3 font-medium">Source</th>
               <th className="pb-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {entries.map((entry) => (
-              <tr key={entry.id} className="align-middle">
+              <tr key={entry.id} className="align-middle hover:bg-surface-raised/70">
                 <td className="py-3 whitespace-nowrap text-muted">{formatClock(entry.consumedAt)}</td>
                 <td className="max-w-xs py-3">
                   <div className="min-w-0">
@@ -101,17 +95,17 @@ export function EntriesTable({ entries, deletingId, onEdit, onDelete }: EntriesT
                 <td className="py-3 text-right font-medium tabular-nums">
                   {formatCalories(entry.calories)}
                 </td>
-                <td className="py-3 text-right tabular-nums">{formatGrams(entry.macros.proteinGrams)}g</td>
-                <td className="py-3 text-right tabular-nums">{formatGrams(entry.macros.carbGrams)}g</td>
-                <td className="py-3 text-right tabular-nums">{formatGrams(entry.macros.fatGrams)}g</td>
+                <td className="py-3 text-right tabular-nums">{formatGrams(entry.macros.proteinGrams)}</td>
+                <td className="py-3 text-right tabular-nums">{formatGrams(entry.macros.carbGrams)}</td>
+                <td className="py-3 text-right tabular-nums">{formatGrams(entry.macros.fatGrams)}</td>
                 <td
-                  className="py-3 text-right tabular-nums text-muted"
+                  className="px-3 py-3 text-center tabular-nums text-muted"
                   title={entry.micronutrients.map((micro) => `${micro.label}: ${micro.amount}${micro.unit}`).join(', ')}
                 >
                   {entry.micronutrients.length || '—'}
                 </td>
-                <td className="py-3">
-                  <Badge tone="accent">{SOURCE_LABEL[entry.source]}</Badge>
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <SourceBadge source={entry.source} />
                 </td>
                 <td className="py-3 text-right whitespace-nowrap">
                   <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => onEdit(entry)}>

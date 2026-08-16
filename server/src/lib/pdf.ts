@@ -38,7 +38,7 @@ export function createDocument(title: string): Document {
     // Keeps every page in memory so the footers can be stamped once the total
     // page count is known.
     bufferPages: true,
-    info: { Title: title, Author: 'Calorie Tracker' },
+    info: { Title: title, Author: 'Calorie, by Typeface' },
   });
 }
 
@@ -64,15 +64,16 @@ export function banner(doc: Document, title: string, subtitle: string, meta: str
   const { left } = doc.page.margins;
 
   doc.rect(0, 0, doc.page.width, height).fill(THEME.ink);
+  doc.rect(0, height - 3, doc.page.width, 3).fill(THEME.accent);
 
-  doc.roundedRect(left, 30, 16, 16, 3).fill(THEME.accent);
+  doc.roundedRect(left, 28, 16, 16, 3).fill(THEME.accent);
   doc
     .font('Helvetica-Bold')
-    .fontSize(9)
+    .fontSize(8)
     .fillColor(THEME.white)
-    .text('CALORIE TRACKER', left + 24, 35, { characterSpacing: 1.2 });
+    .text('BY TYPEFACE', left + 24, 32, { characterSpacing: 1.4 });
 
-  doc.font('Helvetica-Bold').fontSize(20).fillColor(THEME.white).text(title, left, 56);
+  doc.font('Helvetica-Bold').fontSize(20).fillColor(THEME.white).text(title, left, 54);
   doc
     .font('Helvetica')
     .fontSize(9)

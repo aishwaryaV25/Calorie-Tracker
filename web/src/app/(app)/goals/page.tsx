@@ -1,21 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { api } from '@/lib/api-client';
-import { errorMessage } from '@/lib/auth-context';
+import { errorMessage, useAuth } from '@/lib/auth-context';
 import { useAsync } from '@/hooks/useAsync';
-import { formatCalories, formatDateKey, formatGrams, todayKey } from '@/lib/format';
-import { Alert, Badge, Button, Card, EmptyState, Pagination, Skeleton } from '@/components/ui';
+import { formatDateKey, todayKey } from '@/lib/format';
+import { Alert, EmptyState, Pagination, Skeleton } from '@/components/ui';
 import { GoalComposer } from '@/components/goals/GoalComposer';
+import { GoalHistory } from '@/components/goals/GoalHistory';
 import { GoalProgress } from '@/components/goals/GoalProgress';
+import { GoalsHero } from '@/components/goals/GoalsHero';
+import { useGoalsMotion } from '@/components/goals/useGoalsMotion';
 import { useDataRevision } from '@/lib/data-sync';
-import type { Goal } from '@/lib/types';
 
 const HISTORY_PAGE_SIZE = 5;
 
 export default function GoalsPage() {
   const today = todayKey();
   const dataRevision = useDataRevision();
+  const { user } = useAuth();
+  const firstName = user?.displayName.trim().split(/\s+/)[0] ?? '';
+  const rootRef = useRef<HTMLDivElement>(null);
+  useGoalsMotion(rootRef);
+
   const [historyPage, setHistoryPage] = useState(1);
   const [revision, setRevision] = useState(0);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -55,177 +62,100 @@ export default function GoalsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Set Your Goals</h1>
-        <p className="text-sm text-muted">Let&apos;s personalise your targets.</p>
+    <div ref={rootRef} className="flex flex-col gap-5">
+      <header data-goals="head">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Nutrition</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Goals</h1>
+        <p className="mt-1 text-sm text-muted">The film holds the live target. The desk is where you change it.</p>
       </header>
 
       {notice && !deleteError && <Alert tone="info">{notice}</Alert>}
 
-      {current.isLoading && !current.data ? (
-        <Skeleton className="h-96 w-full" />
-      ) : (
-        <GoalComposer
-          key={goal?.id ?? 'new'}
-          currentGoal={goal}
-          onSaved={(saved) => {
-            setNotice(`Targets saved, effective from ${formatDateKey(saved.effectiveFrom)}.`);
-            refreshAll();
-          }}
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(17rem,21rem)_minmax(0,1fr)]">
+        <GoalsHero
+          firstName={firstName}
+          goal={goal}
+          todayCalories={todayTotals.data?.totals.calories ?? null}
         />
-      )}
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-        <Card
-          title="Today against target"
-          description={goal ? `In force since ${formatDateKey(goal.effectiveFrom)}` : undefined}
-        >
-          {(current.isLoading && !current.data) || (todayTotals.isLoading && !todayTotals.data) ? (
-            <Skeleton className="h-48 w-full" />
-          ) : !goal ? (
-            <EmptyState
-              title="No targets yet"
-              description="Set a daily calorie and macro target to start tracking progress against it."
+        {current.isLoading && !current.data ? (
+          <Skeleton className="h-96 w-full" />
+        ) : (
+          <div data-goals="compose">
+            <GoalComposer
+              key={goal?.id ?? 'new'}
+              currentGoal={goal}
+              onSaved={(saved) => {
+                setNotice(`Targets saved, effective from ${formatDateKey(saved.effectiveFrom)}.`);
+                refreshAll();
+              }}
             />
-          ) : (
-            <GoalProgress
-              target={goal}
-              actual={
-                todayTotals.data?.totals ?? {
-                  calories: 0,
-                  proteinGrams: 0,
-                  carbGrams: 0,
-                  fatGrams: 0,
-                }
+          </div>
+        )}
+      </div>
+
+      <section
+        data-goals="today"
+        className="rounded-2xl border border-border bg-surface px-5 py-4 shadow-[0_1px_2px_rgb(17_17_19/0.04)]"
+      >
+        {(current.isLoading && !current.data) || (todayTotals.isLoading && !todayTotals.data) ? (
+          <Skeleton className="h-12 w-full" />
+        ) : !goal ? (
+          <EmptyState
+            title="No targets yet"
+            description="Set a daily calorie and macro target to start tracking progress against it."
+          />
+        ) : (
+          <GoalProgress
+            target={goal}
+            actual={
+              todayTotals.data?.totals ?? {
+                calories: 0,
+                proteinGrams: 0,
+                carbGrams: 0,
+                fatGrams: 0,
               }
-            />
-          )}
-        </Card>
+            }
+          />
+        )}
+      </section>
 
-        <Card
-          title="History"
-          description="Every version of your targets, newest first."
-          action={
-            history.data && history.data.meta.totalItems > 0 ? (
-              <span className="text-xs text-subtle">
-                {history.data.meta.totalItems}{' '}
-                {history.data.meta.totalItems === 1 ? 'version' : 'versions'}
-              </span>
-            ) : undefined
-          }
-        >
-          {deleteError && <Alert>{deleteError}</Alert>}
-          {history.error && <Alert>{history.error}</Alert>}
-
-          {history.isLoading && !history.data ? (
-            <Skeleton className="h-32 w-full" />
-          ) : !history.data || history.data.data.length === 0 ? (
-            <EmptyState
-              title="Nothing saved yet"
-              description="Your goal history will build up here each time you change your targets."
-            />
-          ) : (
-            <>
-              <GoalHistoryList
-                goals={history.data.data}
-                currentGoalId={goal?.id ?? null}
-                deletingId={deletingId}
-                onDelete={handleDelete}
-              />
-              <Pagination {...history.data.meta} onPageChange={setHistoryPage} />
-            </>
+      <section data-goals="history">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Versions</p>
+            <h2 className="mt-1 text-lg font-semibold tracking-tight">History</h2>
+          </div>
+          {history.data && history.data.meta.totalItems > 0 && (
+            <span className="text-xs text-subtle">
+              {history.data.meta.totalItems}{' '}
+              {history.data.meta.totalItems === 1 ? 'version' : 'versions'}
+            </span>
           )}
-        </Card>
-      </div>
+        </div>
+
+        {deleteError && <Alert>{deleteError}</Alert>}
+        {history.error && <Alert>{history.error}</Alert>}
+
+        {history.isLoading && !history.data ? (
+          <Skeleton className="h-24 w-full" />
+        ) : !history.data || history.data.data.length === 0 ? (
+          <EmptyState
+            title="Nothing saved yet"
+            description="Your goal history will build up here each time you change your targets."
+          />
+        ) : (
+          <>
+            <GoalHistory
+              goals={history.data.data}
+              currentGoalId={goal?.id ?? null}
+              deletingId={deletingId}
+              onDelete={handleDelete}
+            />
+            <Pagination {...history.data.meta} onPageChange={setHistoryPage} />
+          </>
+        )}
+      </section>
     </div>
-  );
-}
-
-function GoalHistoryList({
-  goals,
-  currentGoalId,
-  deletingId,
-  onDelete,
-}: {
-  goals: Goal[];
-  currentGoalId: string | null;
-  deletingId: string | null;
-  onDelete: (id: string) => void;
-}) {
-  return (
-    <>
-      <ul className="flex flex-col divide-y divide-border md:hidden">
-        {goals.map((entry) => (
-          <li key={entry.id} className="flex flex-col gap-1.5 py-3 first:pt-0">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{formatDateKey(entry.effectiveFrom)}</span>
-                {entry.id === currentGoalId && <Badge tone="accent">Active</Badge>}
-              </div>
-              <span className="text-sm tabular-nums">{formatCalories(entry.dailyCalories)} kcal</span>
-            </div>
-            <p className="text-xs text-muted">
-              {formatGrams(entry.proteinGrams)}g protein · {formatGrams(entry.carbGrams)}g carbs ·{' '}
-              {formatGrams(entry.fatGrams)}g fat
-              {entry.targetWeightKg != null && ` · ${entry.targetWeightKg}kg goal`}
-            </p>
-            <Button
-              variant="danger"
-              className="mt-1 self-start px-2 py-1 text-xs"
-              isLoading={deletingId === entry.id}
-              onClick={() => onDelete(entry.id)}
-            >
-              Delete
-            </Button>
-          </li>
-        ))}
-      </ul>
-
-      <div className="hidden overflow-x-auto md:block">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs text-subtle">
-              <th className="pb-2 font-medium">Effective from</th>
-              <th className="pb-2 text-right font-medium">Calories</th>
-              <th className="pb-2 text-right font-medium">Protein</th>
-              <th className="pb-2 text-right font-medium">Carbs</th>
-              <th className="pb-2 text-right font-medium">Fat</th>
-              <th className="pb-2 text-right font-medium">Weight</th>
-              <th className="pb-2" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {goals.map((entry) => (
-              <tr key={entry.id}>
-                <td className="py-2.5">
-                  <div className="flex items-center gap-2">
-                    {formatDateKey(entry.effectiveFrom, 'd MMM yyyy')}
-                    {entry.id === currentGoalId && <Badge tone="accent">Active</Badge>}
-                  </div>
-                </td>
-                <td className="py-2.5 text-right tabular-nums">{formatCalories(entry.dailyCalories)}</td>
-                <td className="py-2.5 text-right tabular-nums">{formatGrams(entry.proteinGrams)}g</td>
-                <td className="py-2.5 text-right tabular-nums">{formatGrams(entry.carbGrams)}g</td>
-                <td className="py-2.5 text-right tabular-nums">{formatGrams(entry.fatGrams)}g</td>
-                <td className="py-2.5 text-right tabular-nums text-muted">
-                  {entry.targetWeightKg != null ? `${entry.targetWeightKg}kg` : '—'}
-                </td>
-                <td className="py-2.5 text-right">
-                  <Button
-                    variant="ghost"
-                    className="px-2 py-1 text-xs hover:text-danger"
-                    isLoading={deletingId === entry.id}
-                    onClick={() => onDelete(entry.id)}
-                  >
-                    Delete
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
   );
 }

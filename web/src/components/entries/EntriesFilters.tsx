@@ -4,9 +4,12 @@ import { Button, Field, Input, Select, cx } from '@/components/ui';
 import { daysAgoKey, todayKey } from '@/lib/format';
 import { MEAL_LABELS, MEAL_TYPES, type MealType } from '@/lib/types';
 
+export type EntryRange = 'today' | '7' | '30' | 'custom';
+
 export interface EntryFilterState {
   from: string;
   to: string;
+  range: EntryRange;
   mealType: MealType | '';
   search: string;
   sort: 'consumedAt' | 'calories' | 'createdAt';
@@ -16,16 +19,17 @@ export interface EntryFilterState {
 export const defaultFilters = (): EntryFilterState => ({
   from: daysAgoKey(6),
   to: todayKey(),
+  range: '7',
   mealType: '',
   search: '',
   sort: 'consumedAt',
   order: 'desc',
 });
 
-const RANGE_PRESETS: { label: string; from: () => string; to: () => string }[] = [
-  { label: 'Today', from: todayKey, to: todayKey },
-  { label: 'Last 7 days', from: () => daysAgoKey(6), to: todayKey },
-  { label: 'Last 30 days', from: () => daysAgoKey(29), to: todayKey },
+const RANGE_PRESETS: { id: Exclude<EntryRange, 'custom'>; label: string; from: () => string; to: () => string }[] = [
+  { id: 'today', label: 'Today', from: todayKey, to: todayKey },
+  { id: '7', label: 'Last 7 days', from: () => daysAgoKey(6), to: todayKey },
+  { id: '30', label: 'Last 30 days', from: () => daysAgoKey(29), to: todayKey },
 ];
 
 const SORT_OPTIONS: { label: string; sort: EntryFilterState['sort']; order: EntryFilterState['order'] }[] =
@@ -47,10 +51,7 @@ export function EntriesFilters({ value, onChange }: EntriesFiltersProps) {
     onChange({ ...value, [key]: next });
 
   const isDefault = JSON.stringify(value) === JSON.stringify(defaultFilters());
-  const activeRange = RANGE_PRESETS.find(
-    (preset) => preset.from() === value.from && preset.to() === value.to,
-  );
-  const isCustom = !activeRange && (Boolean(value.from) || Boolean(value.to));
+  const isCustom = value.range === 'custom';
   const sortValue = `${value.sort}:${value.order}`;
 
   return (
@@ -58,12 +59,15 @@ export function EntriesFilters({ value, onChange }: EntriesFiltersProps) {
       <div className="flex flex-wrap items-center gap-2">
         {RANGE_PRESETS.map((preset) => (
           <button
-            key={preset.label}
+            key={preset.id}
             type="button"
-            onClick={() => onChange({ ...value, from: preset.from(), to: preset.to() })}
+            aria-pressed={value.range === preset.id}
+            onClick={() =>
+              onChange({ ...value, range: preset.id, from: preset.from(), to: preset.to() })
+            }
             className={cx(
               'rounded-full px-3 py-1.5 text-xs transition-colors',
-              activeRange?.label === preset.label
+              value.range === preset.id
                 ? 'bg-foreground text-surface'
                 : 'border border-border-strong text-muted hover:text-foreground',
             )}
@@ -73,11 +77,15 @@ export function EntriesFilters({ value, onChange }: EntriesFiltersProps) {
         ))}
         <button
           type="button"
-          onClick={() => {
-            if (!isCustom) {
-              onChange({ ...value, from: value.from || daysAgoKey(6), to: value.to || todayKey() });
-            }
-          }}
+          aria-pressed={isCustom}
+          onClick={() =>
+            onChange({
+              ...value,
+              range: 'custom',
+              from: value.from || daysAgoKey(6),
+              to: value.to || todayKey(),
+            })
+          }
           className={cx(
             'rounded-full px-3 py-1.5 text-xs transition-colors',
             isCustom
@@ -95,26 +103,30 @@ export function EntriesFilters({ value, onChange }: EntriesFiltersProps) {
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Field label="From" htmlFor="from">
-          <Input
-            id="from"
-            type="date"
-            value={value.from}
-            max={value.to || undefined}
-            onChange={(event) => set('from', event.target.value)}
-          />
-        </Field>
+      {isCustom && (
+        <div className="grid gap-3 sm:grid-cols-2" data-entries="custom-range">
+          <Field label="From" htmlFor="from">
+            <Input
+              id="from"
+              type="date"
+              value={value.from}
+              max={value.to || undefined}
+              onChange={(event) => onChange({ ...value, range: 'custom', from: event.target.value })}
+            />
+          </Field>
+          <Field label="To" htmlFor="to">
+            <Input
+              id="to"
+              type="date"
+              value={value.to}
+              min={value.from || undefined}
+              onChange={(event) => onChange({ ...value, range: 'custom', to: event.target.value })}
+            />
+          </Field>
+        </div>
+      )}
 
-        <Field label="To" htmlFor="to">
-          <Input
-            id="to"
-            type="date"
-            value={value.to}
-            min={value.from || undefined}
-            onChange={(event) => set('to', event.target.value)}
-          />
-        </Field>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 
         <Field label="Meal" htmlFor="mealType">
           <Select

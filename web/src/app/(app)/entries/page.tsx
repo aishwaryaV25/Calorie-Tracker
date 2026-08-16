@@ -133,15 +133,16 @@ export default function EntriesPage() {
     <div className="flex flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Entries</h1>
-          <p className="text-sm text-muted">Everything you&apos;ve logged, searchable and filterable.</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Diary</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Entries</h1>
+          <p className="mt-1 text-sm text-muted">Everything you&apos;ve logged, searchable and filterable.</p>
         </div>
         <Link href="/log">
           <Button>+ Log a meal</Button>
         </Link>
       </header>
 
-      <Card>
+      <Card className="rounded-2xl">
         <EntriesFilters value={filters} onChange={applyFilters} />
       </Card>
 
@@ -151,9 +152,9 @@ export default function EntriesPage() {
           label="Calories"
           value={`${formatCalories(totals?.calories ?? 0)} kcal`}
         />
-        <SummaryTile label="Protein" value={`${formatGrams(totals?.proteinGrams ?? 0)} g`} />
-        <SummaryTile label="Carbs" value={`${formatGrams(totals?.carbGrams ?? 0)} g`} />
-        <SummaryTile label="Fat" value={`${formatGrams(totals?.fatGrams ?? 0)} g`} />
+        <SummaryTile label="Protein (g)" value={formatGrams(totals?.proteinGrams ?? 0)} />
+        <SummaryTile label="Carbs (g)" value={formatGrams(totals?.carbGrams ?? 0)} />
+        <SummaryTile label="Fat (g)" value={formatGrams(totals?.fatGrams ?? 0)} />
       </div>
 
       {actionError && <Alert>{actionError}</Alert>}
@@ -161,6 +162,7 @@ export default function EntriesPage() {
       {notice && !actionError && <Alert tone="info">{notice}</Alert>}
 
       <Card
+        className="rounded-2xl"
         title={
           filters.from && filters.to
             ? filters.from === filters.to
@@ -247,7 +249,7 @@ export default function EntriesPage() {
 
 function SummaryTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-4 shadow-[0_1px_2px_rgb(17_17_19/0.04)]">
+    <div className="rounded-2xl border border-border bg-surface p-4 shadow-[0_1px_2px_rgb(17_17_19/0.04)]">
       <p className="text-xs text-muted">{label}</p>
       <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
     </div>

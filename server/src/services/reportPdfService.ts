@@ -83,7 +83,7 @@ export async function buildReportPdf(
   writeMicronutrients(doc, micronutrients.data, dates.days);
   writeDailyTable(doc, days);
 
-  finish(doc, 'Calorie Tracker — figures as recorded in your diary.');
+  finish(doc, 'Calorie, by Typeface — figures as recorded in your diary.');
 
   return {
     buffer: await pending,

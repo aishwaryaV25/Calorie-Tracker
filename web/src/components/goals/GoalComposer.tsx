@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/auth-context';
-import { formatCalories, formatGrams, todayKey } from '@/lib/format';
+import { formatCalories, todayKey } from '@/lib/format';
 import { Alert, Button, Field, Input, cx } from '@/components/ui';
 import { MealSummaryDonut } from '@/components/entries/MealSummaryDonut';
 import { TargetSlider } from './TargetSlider';
@@ -25,7 +25,7 @@ const INTENTS: {
   {
     id: 'lose_fat',
     label: 'Lose fat',
-    description: 'Reduce body fat.',
+    description: 'A leaner cut. Lower energy, protein held high.',
     calories: 2200,
     protein: 150,
     carbs: 250,
@@ -34,7 +34,7 @@ const INTENTS: {
   {
     id: 'build_muscle',
     label: 'Build muscle',
-    description: 'Increase lean mass.',
+    description: 'A surplus to grow. More calories, more protein.',
     calories: 2600,
     protein: 180,
     carbs: 260,
@@ -43,7 +43,7 @@ const INTENTS: {
   {
     id: 'maintain',
     label: 'Maintain',
-    description: 'Stay in shape.',
+    description: 'Hold the line. Enough to train, not to drift.',
     calories: 2400,
     protein: 165,
     carbs: 240,
@@ -148,12 +148,11 @@ export function GoalComposer({
       : null;
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       {bannerError && <Alert>{bannerError}</Alert>}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Choose your goal</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
           {INTENTS.map((item) => {
             const selected = intent === item.id;
 
@@ -163,27 +162,24 @@ export function GoalComposer({
                 type="button"
                 onClick={() => applyIntent(item.id)}
                 className={cx(
-                  'flex flex-col items-start gap-1 rounded-xl border bg-surface px-4 py-4 text-left transition-colors',
+                  'rounded-full px-3 py-1.5 text-xs transition-colors',
                   selected
-                    ? 'border-accent shadow-[0_0_0_1px_var(--accent)]'
-                    : 'border-border hover:border-border-strong',
+                    ? 'bg-foreground text-surface'
+                    : 'border border-border-strong text-muted hover:text-foreground',
                 )}
               >
-                <span className={cx('text-sm font-semibold', selected && 'text-accent')}>
-                  {item.label}
-                </span>
-                <span className="text-xs text-subtle">{item.description}</span>
+                {item.label}
               </button>
             );
           })}
         </div>
-        <p className="text-xs text-subtle">
-          This only fills the daily targets. What we save is still calories, macros and weight.
-        </p>
-      </section>
+        <Button type="submit" isLoading={isSubmitting} className="min-w-32">
+          Save goals
+        </Button>
+      </div>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
-        <section className="flex flex-col gap-5 rounded-xl border border-border bg-surface p-5 shadow-[0_1px_2px_rgb(17_17_19/0.04)]">
+      <section className="grid items-start gap-6 rounded-2xl border border-border bg-surface p-5 shadow-[0_1px_2px_rgb(17_17_19/0.04)] lg:grid-cols-[minmax(0,1fr)_minmax(13rem,16rem)]">
+        <div className="flex flex-col gap-5">
           <h2 className="text-sm font-semibold">Daily targets</h2>
 
           <TargetSlider
@@ -262,7 +258,7 @@ export function GoalComposer({
               label="Target weight (kg)"
               htmlFor="targetWeightKg"
               error={fieldError('targetWeightKg')}
-              hint="Optional weight goal."
+              hint="Optional."
             >
               <Input
                 id="targetWeightKg"
@@ -283,7 +279,7 @@ export function GoalComposer({
               label="Effective from"
               htmlFor="effectiveFrom"
               error={fieldError('effectiveFrom')}
-              hint="Earlier days keep the targets they had."
+              hint="Earlier days keep what they had."
             >
               <Input
                 id="effectiveFrom"
@@ -296,46 +292,17 @@ export function GoalComposer({
               />
             </Field>
           </div>
-        </section>
+        </div>
 
-        <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-5 shadow-[0_1px_2px_rgb(17_17_19/0.04)]">
-          <h2 className="text-sm font-semibold">Goal preview</h2>
+        <div className="lg:pt-6">
           <MealSummaryDonut
             calories={calories}
             proteinGrams={protein}
             carbGrams={carbs}
             fatGrams={fat}
           />
-          <ul className="flex flex-col gap-2 text-sm">
-            <li className="flex justify-between gap-3">
-              <span className="text-muted">Daily energy</span>
-              <span className="font-medium tabular-nums">{formatCalories(calories)} kcal</span>
-            </li>
-            <li className="flex justify-between gap-3">
-              <span className="text-muted">Protein / carbs / fat</span>
-              <span className="font-medium tabular-nums">
-                {formatGrams(protein)} / {formatGrams(carbs)} / {formatGrams(fat)} g
-              </span>
-            </li>
-            <li className="flex justify-between gap-3">
-              <span className="text-muted">Weight goal</span>
-              <span className="font-medium tabular-nums">
-                {targetWeightKg ? `${targetWeightKg} kg` : 'Not set'}
-              </span>
-            </li>
-          </ul>
-          <p className="text-xs text-subtle">
-            A kg-per-week timeline would need a starting weight and a target date. Those are not in
-            the assignment, so they are not invented here.
-          </p>
-        </section>
-      </div>
-
-      <div className="flex justify-end">
-        <Button type="submit" isLoading={isSubmitting} className="min-w-40">
-          Save goals
-        </Button>
-      </div>
+        </div>
+      </section>
     </form>
   );
 }

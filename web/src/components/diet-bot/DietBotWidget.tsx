@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import { api } from '@/lib/api-client';
 import { errorMessage, useAuth } from '@/lib/auth-context';
 import { todayKey } from '@/lib/format';
+import { OPEN_BITE_EVENT } from '@/lib/open-bite';
 import { cx } from '@/components/ui';
 import type { ChatTurn } from '@/lib/types';
 
@@ -102,8 +103,16 @@ export function DietBotWidget() {
       setPos((current) => (current ? clampPosition(current) : current));
     }
 
+    function onOpen() {
+      setOpen(true);
+    }
+
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    window.addEventListener(OPEN_BITE_EVENT, onOpen);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener(OPEN_BITE_EVENT, onOpen);
+    };
   }, []);
 
   useEffect(() => {
